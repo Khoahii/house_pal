@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:house_pal/Screens/Onboading/OnboadingParent.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -14,19 +15,19 @@ class _SplashScreenState extends State<SplashScreen> {
     final isCompleted = await _isCheckCompletedOnboarding();
 
     if (isCompleted) {
-      // if (!context.mounted) return;
-      // //- navigation to home screen
-      // Navigator.pushReplacement(
-      //   context,
-      //   MaterialPageRoute(builder: (context) => const MainScreen()),
-      // );
+      if (!context.mounted) return;
+      //- navigation to home screen
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => Container(child: Text("haha"))),
+      );
     } else {
       //- o lai Onboading
-      // if (!context.mounted) return;
-      // Navigator.pushReplacement(
-      //   context,
-      //   MaterialPageRoute(builder: (context) => const OnboadingParentScreen()),
-      // );
+      if (!context.mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const OnboadingParentScreen()),
+      );
     }
   }
 
@@ -63,7 +64,10 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
             ),
             SizedBox(height: 10),
-            Text("Trợ lý Ngôi nhà Chung", style: TextStyle(color: Colors.white),),
+            Text(
+              "Trợ lý Ngôi nhà Chung",
+              style: TextStyle(color: Colors.white),
+            ),
           ],
         ),
       ),
