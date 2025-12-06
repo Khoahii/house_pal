@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:house_pal/Screens/Onboading/OnboadingParent.dart';
+import 'package:house_pal/Screens/Commom/Auth/auth_wrapper.dart';
+import 'package:house_pal/Screens/Commom/Onboading/OnboadingParent.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -19,7 +20,7 @@ class _SplashScreenState extends State<SplashScreen> {
       //- navigation to login screen
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => Container(child: Text("haha"))),
+        MaterialPageRoute(builder: (context) => AuthWrapper()),
       );
     } else {
       //- o lai Onboading

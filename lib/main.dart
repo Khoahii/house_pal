@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:house_pal/Screens/Splash/splash_screen.dart';
+import 'package:house_pal/Screens/Commom/Splash/splash_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 

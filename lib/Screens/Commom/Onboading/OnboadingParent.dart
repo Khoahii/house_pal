@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:house_pal/Screens/Onboading/OnboadingChild.dart';
+import 'package:house_pal/Screens/Commom/Auth/login_screen.dart';
+import 'package:house_pal/Screens/Commom/Onboading/OnboadingChild.dart';
 import 'package:house_pal/ultils/enum/OnboardingPosition.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -55,7 +56,7 @@ class _OnboadingParentScreenState extends State<OnboadingParentScreen> {
     await _setOnboardingCompleted();
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (context) => Container(child: Text("hello"))),
+      MaterialPageRoute(builder: (context) => LoginScreen()),
     );
   }
 
