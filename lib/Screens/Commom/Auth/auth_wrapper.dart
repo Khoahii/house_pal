@@ -21,8 +21,6 @@ class AuthWrapper extends StatelessWidget {
         // Đã có user (đã login trc đó) → vào app
         if (snapshot.hasData && snapshot.data != null) {
           return ClientHome();
-          // return CreateRoomScreen();
-          // return CreateRoomScreen();
         }
 
         // Chưa đăng nhập → hiện Login

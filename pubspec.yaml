@@ -11,6 +11,8 @@ dependencies:
   flutter:
     sdk: flutter
 
+  provider: ^6.1.1 # for state management
+
   firebase_core:
   cloud_firestore:
   firebase_auth:

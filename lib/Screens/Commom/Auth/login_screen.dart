@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:house_pal/Screens/Client/Home/client_home.dart';
 import 'package:house_pal/Screens/Commom/Auth/register_screen.dart';
+import 'package:house_pal/Screens/Commom/Rooms/join_room_screen.dart';
 import 'package:house_pal/services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -40,7 +40,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       //- navigate to home
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const ClientHome()),
+        MaterialPageRoute(builder: (_) => JoinRoomScreen()),
         (route) => false, // Xóa toàn bộ route cũ
       );
     } catch (e) {
