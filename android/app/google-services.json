@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "881269937606",
+    "project_id": "housepal-7ded9",
+    "storage_bucket": "housepal-7ded9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:881269937606:android:5485079b021898d599cec7",
+        "android_client_info": {
+          "package_name": "com.example.house_pal"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC6B4bXppTz2iBZYR90GXJd8sR5gJ4DZZs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

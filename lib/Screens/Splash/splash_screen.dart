@@ -16,7 +16,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (isCompleted) {
       if (!context.mounted) return;
-      //- navigation to home screen
+      //- navigation to login screen
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => Container(child: Text("haha"))),
