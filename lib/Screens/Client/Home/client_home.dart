@@ -6,8 +6,8 @@ class ClientHome extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Client Home")),
-      body: Container(child: Text("Client Home")),
+      appBar: AppBar(title: const Text("page home")),
+      body: Container(child: Text("page home")),
     );
   }
 }
