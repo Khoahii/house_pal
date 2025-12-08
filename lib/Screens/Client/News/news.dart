@@ -7,7 +7,7 @@ class NewsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("page news")),
-      body: Center(child: Text("page news ppppp")),
+      body: Center(child: Text("page news ppppp khoa was changed")),
     );
   }
 }
