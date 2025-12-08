@@ -86,7 +86,6 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          // ĐÃ THÊM SingleChildScrollView + XÓA Spacer()
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             child: Column(
@@ -244,7 +243,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
 
-                // ĐẨY FOOTER XUỐNG ĐÁY MÀN HÌNH (an toàn, đẹp, không lỗi)
                 const SizedBox(
                   height: 50,
                 ), // Khoảng cách lớn để đẩy footer xuống
