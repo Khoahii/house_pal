@@ -1,13 +1,15 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:house_pal/Screens/Client/Home/client_home.dart';
 import 'package:house_pal/Screens/Commom/Auth/login_screen.dart';
+import 'package:house_pal/Screens/Commom/MainPage/main_screen.dart';
 import 'package:house_pal/services/auth_service.dart';
 
 
 //- file có tác dụng là để check trang thai dang nhập cua nguoi dung, neu dang nhap roi thi vao man hinh chinh, chua thi vao man hinh dang nhap
 
 class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
@@ -20,7 +22,7 @@ class AuthWrapper extends StatelessWidget {
 
         // Đã có user (đã login trc đó) → vào app
         if (snapshot.hasData && snapshot.data != null) {
-          return ClientHome();
+          return MainScreen();
         }
 
         // Chưa đăng nhập → hiện Login

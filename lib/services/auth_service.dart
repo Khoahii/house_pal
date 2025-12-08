@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import '../models/app_user.dart';
 
 class AuthService {
@@ -79,7 +80,7 @@ class AuthService {
       }
       return null;
     } catch (e) {
-      print(e);
+      debugPrint(e.toString());
       return null;
     }
   }
@@ -112,5 +113,21 @@ class AuthService {
       if (user == null) return null;
       return await getUserData(user.uid);
     });
+  }
+
+  // Kiểm tra xem user đã tham gia phòng nào chưa
+  Future<bool> userHasRoom(String uid) async {
+    try {
+      final doc = await _firestore.collection('users').doc(uid).get();
+      if (!doc.exists) return false;
+
+      final data = doc.data() as Map<String, dynamic>;
+      final roomId = data['roomId'];
+
+      return roomId != null && roomId.toString().isNotEmpty;
+    } catch (e) {
+      debugPrint("Error checking user room: $e");
+      return false;
+    }
   }
 }
