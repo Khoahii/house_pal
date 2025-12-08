@@ -8,6 +8,8 @@ import 'package:house_pal/services/auth_service.dart';
 //- file có tác dụng là để check trang thai dang nhập cua nguoi dung, neu dang nhap roi thi vao man hinh chinh, chua thi vao man hinh dang nhap
 
 class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
