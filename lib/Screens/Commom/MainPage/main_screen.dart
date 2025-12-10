@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:house_pal/Screens/Client/Funds/fund_screen.dart';
+import 'package:house_pal/Screens/Client/Funds/main_screen.dart';
 import 'package:house_pal/Screens/Client/Home/client_home.dart';
 import 'package:house_pal/Screens/Client/News/news.dart';
 import 'package:house_pal/Screens/Client/Task/task.dart';
@@ -16,10 +16,11 @@ class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
 
   // Danh sách các trang
-  final List<Widget> _pages = const [
+  final List<Widget> _pages = [
     ClientHome(),
     TaskScreen(),
-    FundScreen(),
+    // FundScreen(),
+    MainFundScreen(),
     NewsScreen(),
     ProfileScreen(),
   ];
