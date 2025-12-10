@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:house_pal/Screens/Client/Funds/create_fund_bottom_sheet.dart';
 import 'package:intl/intl.dart';
 
 class MainFundScreen extends StatelessWidget {
@@ -130,11 +131,18 @@ class MainFundScreen extends StatelessWidget {
 
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color(0xFF4F46E5),
-        onPressed: () {
-          // TODO: Navigate to Tạo quỹ mới
-        },
+        onPressed: () => _showCreateFundBottomSheet(context),
         child: const Icon(Icons.add, color: Colors.white),
       ),
+    );
+  }
+
+  void _showCreateFundBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => CreateFundBottomSheet(),
     );
   }
 
