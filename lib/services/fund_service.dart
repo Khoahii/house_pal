@@ -1,0 +1,160 @@
+// lib/services/fund_service.dart
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../models/fund.dart';
+import '../models/app_user.dart';
+
+class FundService {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final String currentUserId = FirebaseAuth.instance.currentUser!.uid;
+
+  // Tạo quỹ mới + tạo luôn fund_members cho tất cả thành viên được chọn
+  Future<Fund> createFund({
+    required String name,
+    required String iconId,
+    required String iconEmoji,
+    required DocumentReference roomRef,
+    required List<DocumentReference> memberRefs, // đã chọn
+  }) async {
+    final creatorRef = _firestore.collection('users').doc(currentUserId);
+    final fundRef = _firestore.collection('funds').doc();
+
+    final Fund newFund = Fund(
+      id: fundRef.id,
+      name: name,
+      iconId: iconId,
+      iconEmoji: iconEmoji,
+      roomId: roomRef,
+      creatorId: creatorRef,
+      members: memberRefs,
+      totalSpent: 0,
+      createdAt: DateTime.now(),
+    );
+
+    // Batch write: tạo fund + tạo fund_members cho từng người
+    final batch = _firestore.batch();
+
+    // 1. Tạo document fund
+    batch.set(fundRef, newFund.toFirestore());
+
+    // 2. Tạo fund_members cho từng thành viên
+    for (final memberRef in memberRefs) {
+      final memberDoc = await memberRef.get();
+      final userData = memberDoc.data() as Map<String, dynamic>;
+
+      final docId = "${fundRef.id}_${memberRef.id}";
+      final fundMemberRef = _firestore.collection('fund_members').doc(docId);
+
+      batch.set(fundMemberRef, {
+        'fundId': fundRef.id,
+        'fundName': name,
+        'userId': memberRef.id,
+        'userName': userData['name'] ?? 'Unknown',
+        'userAvatar': userData['avatarUrl'],
+        'totalPaid': 0,
+        'totalOwed': 0,
+        'balance': 0,
+        'joinedAt': FieldValue.serverTimestamp(),
+        'lastUpdated': FieldValue.serverTimestamp(),
+      });
+    }
+
+    await batch.commit();
+
+    // Trả về fund đã tạo (có id thật)
+    final doc = await fundRef.get();
+    return Fund.fromFirestore(doc);
+  }
+
+  // Lấy stream tất cả quỹ mà user hiện tại đang tham gia (dùng trong MainFundScreen)
+  Stream<List<Fund>> getMyFundsStream() {
+    final userRef = _firestore.collection('users').doc(currentUserId);
+
+    return _firestore
+        .collection('funds')
+        .where('members', arrayContains: userRef)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs.map(Fund.fromFirestore).toList();
+        });
+  }
+
+  // Lấy tổng dư, cần thu, cần trả từ fund_members (siêu nhanh, realtime)
+  Stream<Map<String, int>> getFundSummaryStream() {
+    return _firestore
+        .collection('fund_members')
+        .where('userId', isEqualTo: currentUserId)
+        .snapshots()
+        .map((snapshot) {
+          int totalBalance = 0;
+          int totalToCollect = 0;
+          int totalToPay = 0;
+
+          for (final doc in snapshot.docs) {
+            final data = doc.data() as Map<String, dynamic>;
+
+            // Lấy balance an toàn, chuyển về int
+            final dynamic raw = data['balance'];
+            int balance;
+            if (raw is int) {
+              balance = raw;
+            } else if (raw is double) {
+              balance = raw.toInt();
+            } else if (raw is num) {
+              balance = raw.toInt();
+            } else {
+              // nếu là String hoặc null -> thử parse, fallback 0
+              balance = int.tryParse(raw?.toString() ?? '') ?? 0;
+            }
+
+            totalBalance += balance;
+            if (balance > 0) {
+              totalToCollect += balance; // mình được nhận lại
+            } else if (balance < 0) {
+              totalToPay += balance.abs(); // mình phải trả
+            }
+          }
+
+          return {
+            'totalBalance': totalBalance,
+            'totalToCollect': totalToCollect,
+            'totalToPay': totalToPay,
+          };
+        });
+  }
+
+  // Xóa quỹ (chỉ creator hoặc admin/room_leader mới được)
+  Future<void> deleteFund(String fundId, String creatorId) async {
+    final userDoc = await _firestore
+        .collection('users')
+        .doc(currentUserId)
+        .get();
+    final userRole = userDoc['role'] as String;
+
+    final isAdminOrLeader = userRole == 'admin' || userRole == 'room_leader';
+    final isCreator = creatorId == currentUserId;
+
+    if (!isAdminOrLeader && !isCreator) {
+      throw "Bạn không có quyền xóa quỹ này";
+    }
+
+    final batch = _firestore.batch();
+
+    // Xóa document fund
+    final fundRef = _firestore.collection('funds').doc(fundId);
+    batch.delete(fundRef);
+
+    // Xóa hết fund_members liên quan
+    final membersSnap = await _firestore
+        .collection('fund_members')
+        .where('fundId', isEqualTo: fundId)
+        .get();
+
+    for (final doc in membersSnap.docs) {
+      batch.delete(doc.reference);
+    }
+
+    await batch.commit();
+  }
+}
