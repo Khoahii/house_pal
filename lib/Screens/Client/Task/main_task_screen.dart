@@ -20,9 +20,13 @@ class MainTaskScreen extends StatelessWidget {
   }
 }
 
-class MainTask extends StatelessWidget {
+class MainTask extends StatefulWidget {
   const MainTask({super.key});
+  @override
+  State<MainTask> createState() => _MainTaskState();
+}
 
+class _MainTaskState extends State<MainTask> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -33,7 +37,7 @@ class MainTask extends StatelessWidget {
         elevation: 4,
         child: const Icon(Icons.add, color: Colors.white, size: 28),
       ),
-      
+
       body: Stack(
         children: [
           // 1. NỀN GRADIENT CỐ ĐỊNH
@@ -64,7 +68,7 @@ class MainTask extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 24),
-                      
+
                       // Header Title
                       const Text(
                         'Lịch Việc Nhà',
@@ -74,9 +78,9 @@ class MainTask extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      
+
                       const SizedBox(height: 24),
-                      
+
                       // Bảng xếp hạng
                       Container(
                         padding: const EdgeInsets.all(16),
@@ -91,11 +95,18 @@ class MainTask extends StatelessWidget {
                               children: const [
                                 Text(
                                   '🏆 Bảng Xếp Hạng',
-                                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                                 Text(
                                   'Xem tất cả',
-                                  style: TextStyle(color: Color(0xFFE0E7FF), fontSize: 12),
+                                  style: TextStyle(
+                                    color: Color(0xFFE0E7FF),
+                                    fontSize: 12,
+                                  ),
                                 ),
                               ],
                             ),
@@ -103,17 +114,26 @@ class MainTask extends StatelessWidget {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceAround,
                               children: const [
-                                LeaderboardItem(name: 'Minh', image: 'https://placehold.co/48x48', isWinner: true),
-                                LeaderboardItem(name: 'Hương', image: 'https://placehold.co/48x48'),
-                                LeaderboardItem(name: 'Tuấn', image: 'https://placehold.co/48x48'),
+                                LeaderboardItem(
+                                  name: 'Minh',
+                                  image: 'https://placehold.co/48x48',
+                                  isWinner: true,
+                                ),
+                                LeaderboardItem(
+                                  name: 'Hương',
+                                  image: 'https://placehold.co/48x48',
+                                ),
+                                LeaderboardItem(
+                                  name: 'Tuấn',
+                                  image: 'https://placehold.co/48x48',
+                                ),
                               ],
                             ),
                           ],
                         ),
                       ),
-                      
+
                       const SizedBox(height: 80),
-                      
                     ],
                   ),
                 ),
@@ -137,18 +157,40 @@ class MainTask extends StatelessWidget {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF4F46E5),
-                                shape: BoxShape.circle,
+                            // Container(
+                            //   width: 40,
+                            //   height: 40,
+                            //   decoration: const BoxDecoration(
+                            //     color: Color(0xFF4F46E5),
+                            //     shape: BoxShape.circle,
+                            //   ),
+                            //   child: const Icon(Icons.sync, color: Colors.white, size: 20),
+                            // ),
+                            Material(
+                              color: const Color(0xFF4F46E5),
+                              shape: const CircleBorder(),
+                              child: InkWell(
+                                customBorder: const CircleBorder(),
+                                onTap: () {
+                                  // TODO: xử lý khi nhấn nút refresh
+                                  print("Đã nhấn nút refresh");
+                                },
+                                child: const SizedBox(
+                                  width: 40,
+                                  height: 40,
+                                  child: Center(
+                                    child: Icon(
+                                      Icons.sync,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                                  ),
+                                ),
                               ),
-                              child: const Icon(Icons.sync, color: Colors.white, size: 20),
                             ),
                           ],
                         ),
-                        
+
                         const SizedBox(height: 24),
 
                         // Các thẻ Task
@@ -188,7 +230,7 @@ class MainTask extends StatelessWidget {
                           assignee: 'Minh',
                           assigneeAvatar: 'https://placehold.co/32x32',
                         ),
-                        
+
                         // Khoảng trống dưới cùng (quan trọng để list cuộn lên hết không bị FAB che)
                         const SizedBox(height: 100),
                       ],
@@ -210,7 +252,12 @@ class LeaderboardItem extends StatelessWidget {
   final String name;
   final String image;
   final bool isWinner;
-  const LeaderboardItem({super.key, required this.name, required this.image, this.isWinner = false});
+  const LeaderboardItem({
+    super.key,
+    required this.name,
+    required this.image,
+    this.isWinner = false,
+  });
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -219,14 +266,36 @@ class LeaderboardItem extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             Container(
-              decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
-              child: CircleAvatar(radius: 24, backgroundImage: NetworkImage(image), backgroundColor: Colors.grey[300]),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+              child: CircleAvatar(
+                radius: 24,
+                backgroundImage: NetworkImage(image),
+                backgroundColor: Colors.grey[300],
+              ),
             ),
-            if (isWinner) const Positioned(top: -12, left: 0, right: 0, child: Center(child: Text('👑', style: TextStyle(fontSize: 18)))),
+            if (isWinner)
+              const Positioned(
+                top: -12,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Text('👑', style: TextStyle(fontSize: 18)),
+                ),
+              ),
           ],
         ),
         const SizedBox(height: 8),
-        Text(name, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
+        Text(
+          name,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
       ],
     );
   }
@@ -244,7 +313,16 @@ class FilterTab extends StatelessWidget {
         color: isSelected ? const Color(0xFF4F46E5) : Colors.transparent,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Center(child: Text(text, style: TextStyle(color: isSelected ? Colors.white : const Color(0xFF4B5563), fontWeight: FontWeight.bold, fontSize: 14))),
+      child: Center(
+        child: Text(
+          text,
+          style: TextStyle(
+            color: isSelected ? Colors.white : const Color(0xFF4B5563),
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -258,7 +336,17 @@ class TaskCardItem extends StatelessWidget {
   final String description;
   final String assignee;
   final String assigneeAvatar;
-  const TaskCardItem({super.key, required this.difficulty, required this.difficultyColor, required this.difficultyBg, required this.points, required this.title, required this.description, required this.assignee, required this.assigneeAvatar});
+  const TaskCardItem({
+    super.key,
+    required this.difficulty,
+    required this.difficultyColor,
+    required this.difficultyBg,
+    required this.points,
+    required this.title,
+    required this.description,
+    required this.assignee,
+    required this.assigneeAvatar,
+  });
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -268,7 +356,13 @@ class TaskCardItem extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFF3F4F6)),
-        boxShadow: const [BoxShadow(color: Color(0x0C000000), blurRadius: 4, offset: Offset(0, 2))],
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0C000000),
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -276,18 +370,52 @@ class TaskCardItem extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: difficultyBg, borderRadius: BorderRadius.circular(20)),
-                child: Text(difficulty, style: TextStyle(color: difficultyColor, fontSize: 11, fontWeight: FontWeight.bold)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: difficultyBg,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  difficulty,
+                  style: TextStyle(
+                    color: difficultyColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
               const SizedBox(width: 8),
-              Text(points, style: const TextStyle(color: Color(0xFF4F46E5), fontSize: 14, fontWeight: FontWeight.bold)),
+              Text(
+                points,
+                style: const TextStyle(
+                  color: Color(0xFF4F46E5),
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 12),
-          Text(title, style: const TextStyle(color: Color(0xFF1F2937), fontSize: 16, fontWeight: FontWeight.bold)),
+          Text(
+            title,
+            style: const TextStyle(
+              color: Color(0xFF1F2937),
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(height: 6),
-          Text(description, style: const TextStyle(color: Color(0xFF6B7280), fontSize: 13, height: 1.4)),
+          Text(
+            description,
+            style: const TextStyle(
+              color: Color(0xFF6B7280),
+              fontSize: 13,
+              height: 1.4,
+            ),
+          ),
           const SizedBox(height: 16),
           const Divider(height: 1, color: Color(0xFFF3F4F6)),
           const SizedBox(height: 12),
@@ -296,18 +424,42 @@ class TaskCardItem extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  CircleAvatar(radius: 14, backgroundImage: NetworkImage(assigneeAvatar), backgroundColor: Colors.grey[200]),
+                  CircleAvatar(
+                    radius: 14,
+                    backgroundImage: NetworkImage(assigneeAvatar),
+                    backgroundColor: Colors.grey[200],
+                  ),
                   const SizedBox(width: 8),
-                  Text(assignee, style: const TextStyle(color: Color(0xFF374151), fontSize: 14, fontWeight: FontWeight.w600)),
+                  Text(
+                    assignee,
+                    style: const TextStyle(
+                      color: Color(0xFF374151),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ],
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(color: const Color(0xFFEEF2FF), borderRadius: BorderRadius.circular(8)),
-                child: const Text('Chi tiết', style: TextStyle(color: Color(0xFF4F46E5), fontSize: 12, fontWeight: FontWeight.w500)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEEF2FF),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'Chi tiết',
+                  style: TextStyle(
+                    color: Color(0xFF4F46E5),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ),
             ],
-          )
+          ),
         ],
       ),
     );
