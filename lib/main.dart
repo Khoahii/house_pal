@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:house_pal/Screens/Commom/Auth/auth_wrapper.dart';
 import 'package:house_pal/Screens/Commom/Splash/splash_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:house_pal/providers/auth_provider.dart';
@@ -27,7 +28,8 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: const SplashScreen(),
+      // home: const SplashScreen(),
+      home: AuthWrapper(),
       // home:const NewsScreen(),
     );
   }

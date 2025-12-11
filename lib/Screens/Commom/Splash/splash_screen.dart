@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:house_pal/Screens/Commom/Auth/auth_wrapper.dart';
-import 'package:house_pal/Screens/Commom/Onboading/OnboadingParent.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+// import 'package:house_pal/Screens/Commom/Auth/auth_wrapper.dart';
+// import 'package:house_pal/Screens/Commom/Onboading/OnboadingParent.dart';
+// import 'package:shared_preferences/shared_preferences.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -12,42 +12,42 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> {
   //- xu ly xem da hoan thanh Onboarding chua
-  Future<void> handleSuccessOnbroading(BuildContext context) async {
-    final isCompleted = await _isCheckCompletedOnboarding();
+  // Future<void> handleSuccessOnbroading(BuildContext context) async {
+  //   final isCompleted = await _isCheckCompletedOnboarding();
 
-    if (isCompleted) {
-      if (!context.mounted) return;
-      //- navigation to login screen
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => AuthWrapper()),
-      );
-    } else {
-      //- o lai Onboading
-      if (!context.mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const OnboadingParentScreen()),
-      );
-    }
-  }
+  //   if (isCompleted) {
+  //     if (!context.mounted) return;
+  //     //- navigation to login screen
+  //     Navigator.pushReplacement(
+  //       context,
+  //       MaterialPageRoute(builder: (context) => AuthWrapper()),
+  //     );
+  //   } else {
+  //     //- o lai Onboading
+  //     if (!context.mounted) return;
+  //     Navigator.pushReplacement(
+  //       context,
+  //       MaterialPageRoute(builder: (context) => const OnboadingParentScreen()),
+  //     );
+  //   }
+  // }
 
-  //- func check
-  Future<bool> _isCheckCompletedOnboarding() async {
-    try {
-      //- dung thu vien shared preferences
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
+  // //- func check
+  // Future<bool> _isCheckCompletedOnboarding() async {
+  //   try {
+  //     //- dung thu vien shared preferences
+  //     final SharedPreferences prefs = await SharedPreferences.getInstance();
 
-      final result = prefs.getBool('onboarding_completed') ?? false;
-      return result;
-    } catch (e) {
-      return false;
-    }
-  }
+  //     final result = prefs.getBool('onboarding_completed') ?? false;
+  //     return result;
+  //   } catch (e) {
+  //     return false;
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {
-    handleSuccessOnbroading(context);
+    // handleSuccessOnbroading(context);
     return const Scaffold(
       backgroundColor: Colors.deepPurple,
       body: Center(

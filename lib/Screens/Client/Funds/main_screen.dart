@@ -1,14 +1,24 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:house_pal/Screens/Client/Funds/create_fund_bottom_sheet.dart';
+import 'package:house_pal/models/app_user.dart';
+import 'package:house_pal/models/fund.dart';
+import 'package:house_pal/services/auth_service.dart';
+import 'package:house_pal/services/fund_service.dart';
 import 'package:intl/intl.dart';
+import 'create_fund_bottom_sheet.dart';
 
-class MainFundScreen extends StatelessWidget {
-  MainFundScreen({super.key});
+class MainFundScreen extends StatefulWidget {
+  const MainFundScreen({super.key});
 
-  // ========== MOCK DATA==========
-  final currentUserId = "user_minhtc"; // giả sử user đang đăng nhập
-  final bool isAdmin = false; // đổi thành true để test quyền admin
-  final bool isRoomLeader = true; // đổi thành true/false để test
+  @override
+  State<MainFundScreen> createState() => _MainFundScreenState();
+}
+
+class _MainFundScreenState extends State<MainFundScreen> {
+  final FundService _fundService = FundService();
+  final AuthService _authService = AuthService();
+  final String currentUserId = FirebaseAuth.instance.currentUser!.uid;
 
   final NumberFormat currencyFormat = NumberFormat.currency(
     locale: 'vi_VN',
@@ -16,47 +26,29 @@ class MainFundScreen extends StatelessWidget {
     decimalDigits: 0,
   );
 
-  final List<FundMock> mockFunds = [
-    FundMock(
-      fundId: "fund_001",
-      name: "Du lịch Đà Lạt",
-      icon: "plane", // FontAwesome: 
-      status: FundStatus.open,
-      lastUpdated: "Cập nhật 2 giờ trước",
-      memberCount: 5, // 3 ảnh + +2
-      totalSpent: 12500000,
-      creatorId: "user_minhtc", // Minh tạo → có quyền xóa
-    ),
-    FundMock(
-      fundId: "fund_002",
-      name: "Ăn trưa Công ty",
-      icon: "utensils", // 
-      status: FundStatus.open,
-      lastUpdated: "Cập nhật hôm qua",
-      memberCount: 8,
-      totalSpent: 2150000,
-      creatorId:
-          "user_anhboss", // không phải Minh tạo → không xóa được nếu không phải admin/leader
-    ),
-    FundMock(
-      fundId: "fund_003",
-      name: "Tiền nhà trọ T8",
-      icon: "home", // 
-      status: FundStatus.closed,
-      lastUpdated: "Đã quyết toán",
-      memberCount: 4,
-      totalSpent: 8000000,
-      creatorId: "user_minhtc",
-    ),
-  ];
+  late Stream<List<Fund>> _fundsStream;
+  late Stream<Map<String, int>> _summaryStream;
+  late Stream<AppUser?> _currentUserStream;
 
-  // Tổng hợp để hiển thị card tím
-  int get totalBalance => 4250000;
-  int get totalToCollect => 5100000;
-  int get totalToPay => 850000;
+  @override
+  void initState() {
+    super.initState();
+    _fundsStream = _fundService.getMyFundsStream();
+    _summaryStream = _fundService.getFundSummaryStream();
+    _currentUserStream = FirebaseFirestore.instance
+        .collection('users')
+        .doc(currentUserId)
+        .snapshots()
+        .map((snap) => snap.exists ? AppUser.fromFirestore(snap) : null);
+  }
 
-  bool canDeleteFund(String creatorId) {
-    return isAdmin || isRoomLeader || creatorId == currentUserId;
+  void _showCreateFundSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const CreateFundBottomSheet(),
+    );
   }
 
   @override
@@ -64,416 +56,494 @@ class MainFundScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text("Quỹ Nhóm"),
+        title: const Text(
+          "Quỹ Nhóm",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         centerTitle: false,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.black87,
         actions: [
-          CircleAvatar(
-            backgroundImage: NetworkImage("https://i.pravatar.cc/150?img=1"),
-          ),
-          const SizedBox(width: 16),
-          Container(
-            child: const Text(
-              "Xin chào, Minh!",
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
+          // DÙNG StreamBuilder Ở ĐÂY để hiển thị tên và avatar
+          StreamBuilder<AppUser?>(
+            stream: _currentUserStream,
+            builder: (context, snapshot) {
+              final user = snapshot.data;
+              final avatarUrl = user?.avatarUrl;
+              final name = user?.name ?? "User";
+
+              return Row(
+                children: [
+                  Text(
+                    "Xin chào, ${name.split(' ').last}!",
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+
+                  //- press logout tạm
+                  GestureDetector(
+                    onTap: () => _authService.signOut(),
+                    child: CircleAvatar(
+                      radius: 18,
+                      backgroundColor: const Color(0xFF4F46E5),
+                      backgroundImage: avatarUrl != null
+                          ? NetworkImage(avatarUrl)
+                          : null,
+                      child: avatarUrl == null
+                          ? Text(
+                              name.isNotEmpty ? name[0].toUpperCase() : "U",
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            )
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                ],
+              );
+            },
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ====== CARD TỔNG SỐ DƯ ======
-            _buildSummaryCard(),
 
-            const SizedBox(height: 32),
+      // BỌC StreamBuilder CỦA DANH SÁCH QUỸ BÊN TRONG StreamBuilder CỦA USER
+      body: StreamBuilder<AppUser?>(
+        stream: _currentUserStream,
+        builder: (context, userSnapshot) {
+          // Xử lý trạng thái tải người dùng đầu tiên
+          if (!userSnapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final currentUser = userSnapshot.data; // Lấy AppUser đã xác nhận
 
-            // ====== TIÊU ĐỀ + SỐ LƯỢNG QUỸ ======
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  "Quỹ đang hoạt động",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
+          // Tiếp tục xây dựng body chính bằng StreamBuilder của Funds
+          return StreamBuilder<List<Fund>>(
+            stream: _fundsStream,
+            builder: (context, fundSnapshot) {
+              if (fundSnapshot.hasError) {
+                return Center(child: Text("Lỗi: ${fundSnapshot.error}"));
+              }
+
+              if (!fundSnapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              final funds = fundSnapshot.data!;
+
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // CARD TỔNG DƯ
+                    StreamBuilder<Map<String, int>>(
+                      stream: _summaryStream,
+                      builder: (context, summarySnapshot) {
+                        final data =
+                            summarySnapshot.data ??
+                            {
+                              'totalBalance': 0,
+                              'totalToCollect': 0,
+                              'ToPay': 0,
+                            };
+                        final totalBalance = data['totalBalance'] ?? 0;
+                        final toCollect = data['totalToCollect'] ?? 0;
+                        final toPay = data['ToPay'] ?? 0;
+
+                        return _buildSummaryCard(
+                          totalBalance,
+                          toCollect,
+                          toPay,
+                        );
+                      },
+                    ),
+
+                    const SizedBox(height: 32),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          "Quỹ đang hoạt động",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          "${funds.length} quỹ",
+                          style: const TextStyle(
+                            color: Color(0xFF4F46E5),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    funds.isEmpty
+                        ? _buildEmptyState()
+                        : ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: funds.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 16),
+                            itemBuilder: (context, index) {
+                              final fund = funds[index];
+
+                              // TRUYỀN THẲNG currentUser VÀO _buildFundCard
+                              return _buildFundCard(fund, currentUser);
+                            },
+                          ),
+                  ],
                 ),
-                Text(
-                  "${mockFunds.length} quỹ",
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF4F46E5),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 16),
-
-            // ====== DANH SÁCH QUỸ ======
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: mockFunds.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 16),
-              itemBuilder: (context, index) {
-                final fund = mockFunds[index];
-                return _buildFundCard(fund);
-              },
-            ),
-          ],
-        ),
+              );
+            },
+          );
+        },
       ),
 
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color(0xFF4F46E5),
-        onPressed: () => _showCreateFundBottomSheet(context),
+        onPressed: _showCreateFundSheet,
         child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }
 
-  void _showCreateFundBottomSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => CreateFundBottomSheet(),
-    );
-  }
-
-  Widget _buildSummaryCard() {
+  Widget _buildSummaryCard(int balance, int toCollect, int toPay) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          begin: Alignment(-0.25, -0.25),
-          end: Alignment(0.75, 1.25),
           colors: [Color(0xFF4F46E5), Color(0xFF3730A3)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 15,
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 20,
             offset: const Offset(0, 10),
           ),
         ],
       ),
-      child: Stack(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                "Tổng số dư tất cả quỹ",
-                style: TextStyle(color: Color(0xFFE0E7FF), fontSize: 14),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                currencyFormat.format(totalBalance),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 30,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _summaryItem(
-                      icon: Icons.arrow_upward,
-                      color: const Color(0xFF86EFAC),
-                      label: "Cần thu",
-                      amount: totalToCollect,
-                    ),
-                    Container(
-                      width: 1,
-                      height: 32,
-                      color: Colors.white.withOpacity(0.2),
-                    ),
-                    _summaryItem(
-                      icon: Icons.arrow_downward,
-                      color: const Color(0xFFFCA5A5),
-                      label: "Cần trả",
-                      amount: totalToPay,
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          const Text(
+            "Tổng số dư tất cả quỹ",
+            style: TextStyle(color: Colors.white70, fontSize: 14),
           ),
-          // Hiệu ứng bong bóng trang trí
-          Positioned(
-            right: -20,
-            top: -20,
-            child: Opacity(
-              opacity: 0.1,
-              child: Container(
-                width: 100,
-                height: 100,
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                ),
-              ),
+          const SizedBox(height: 8),
+          Text(
+            currencyFormat.format(balance),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
             ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(child: _summaryItem("Cần thu", toCollect, Colors.green)),
+              Container(width: 1, height: 40, color: Colors.white24),
+              Expanded(child: _summaryItem("Cần trả", toPay, Colors.red)),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _summaryItem({
-    required IconData icon,
-    required Color color,
-    required String label,
-    required int amount,
-  }) {
-    return Row(
+  Widget _summaryItem(String label, int amount, Color color) {
+    return Column(
       children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.3),
-            borderRadius: BorderRadius.circular(50),
-          ),
-          child: Icon(icon, color: color, size: 16),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white70, fontSize: 13),
         ),
-        const SizedBox(width: 8),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: const TextStyle(color: Color(0xFFC7D2FE), fontSize: 12),
-            ),
-            Text(
-              currencyFormat.format(amount),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
+        const SizedBox(height: 4),
+        Text(
+          currencyFormat.format(amount),
+          style: TextStyle(
+            color: color,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildFundCard(FundMock fund) {
-    final bool canDelete = canDeleteFund(fund.creatorId);
+  Widget _buildFundCard(Fund fund, AppUser? currentUser) {
+    // 1. Kiểm tra vai trò (Role-based check)
+    final isAdmin = currentUser?.role == "admin";
+    final isLeader = currentUser?.role == "room_leader";
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: fund.status == FundStatus.closed
-            ? Colors.white.withOpacity(0.7)
-            : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFF3F4F6)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-        ],
+    // 2. Kiểm tra Người tạo (Creator check)
+    // So sánh ID người dùng hiện tại với ID người tạo quỹ.
+    // Lưu ý: fund.creatorId là DocumentReference, cần lấy .id để so sánh với String ID.
+    final isCreator = currentUser?.uid == fund.creatorId.id;
+
+    // 3. Logic Xóa (Delete permission)
+    // Có thể xóa nếu là Admin, Room Leader, HOẶC Người tạo
+    final canDelete = isAdmin || isLeader || isCreator;
+
+    return Dismissible(
+      key: Key(fund.id),
+      // Điều hướng Dismissible chỉ được kích hoạt nếu canDelete là true
+      direction: canDelete
+          ? DismissDirection.endToStart
+          : DismissDirection.none,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        decoration: BoxDecoration(
+          color: Colors.red,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Icon(Icons.delete, color: Colors.white, size: 28),
       ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: _getIconBackground(fund.icon),
-                      borderRadius: BorderRadius.circular(12),
+      onDismissed: (_) => _fundService.deleteFund(fund.id, fund.creatorId.id),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        fund.iconEmoji,
+                        style: const TextStyle(fontSize: 28),
+                      ),
                     ),
-                    child: Icon(
-                      _getIconData(fund.icon),
-                      color: _getIconColor(fund.icon),
-                      size: 24,
+                    const SizedBox(width: 16),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          fund.name,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          "Cập nhật gần đây",
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        fund.name,
-                        style: const TextStyle(
-                          fontSize: 16,
+                  ],
+                ),
+
+                // —— CHỈ ADMIN, LEADER, CREATOR MỚI THẤY MORE VERTICAL ——
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.green[50],
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        "Đang mở",
+                        style: TextStyle(
+                          color: Colors.green[700],
                           fontWeight: FontWeight.bold,
+                          fontSize: 12,
                         ),
                       ),
-                      Text(
-                        fund.lastUpdated,
-                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+
+                    // Chỉ hiển thị IconButton nếu có quyền xóa
+                    if (canDelete) ...[
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.more_vert, color: Colors.grey),
+                        onPressed: () => _showDeleteDialog(fund),
                       ),
                     ],
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
+                  ],
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 16),
+            // avatar + totalSpent
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                FutureBuilder<List<AppUser>>(
+                  future: _getFundMembers(fund.members),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData)
+                      return const SizedBox(
+                        width: 100,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      );
+                    final members = snapshot.data!;
+                    return _buildAvatarStack(members);
+                  },
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    const Text(
+                      "Tổng chi tiêu",
+                      style: TextStyle(color: Colors.grey, fontSize: 13),
                     ),
-                    decoration: BoxDecoration(
-                      color: fund.status == FundStatus.open
-                          ? const Color(0xFFDCFCE7)
-                          : const Color(0xFFF3F4F6),
-                      borderRadius: BorderRadius.circular(50),
-                    ),
-                    child: Text(
-                      fund.status == FundStatus.open ? "Đang mở" : "Đóng",
-                      style: TextStyle(
-                        fontSize: 12,
+                    Text(
+                      currencyFormat.format(fund.totalSpent),
+                      style: const TextStyle(
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: fund.status == FundStatus.open
-                            ? const Color(0xFF15803D)
-                            : Colors.grey[600],
-                      ),
-                    ),
-                  ),
-                  if (canDelete) ...[
-                    const SizedBox(width: 8),
-                    // ✅ FIX: Wrap trong Builder để có context
-                    Builder(
-                      builder: (context) => PopupMenuButton<String>(
-                        icon: const Icon(Icons.more_vert, color: Colors.grey),
-                        onSelected: (value) {
-                          if (value == 'delete') {
-                            _showDeleteDialog(context, fund);
-                          }
-                        },
-                        itemBuilder: (_) => [
-                          const PopupMenuItem(
-                            value: 'delete',
-                            child: Row(
-                              children: [
-                                Icon(Icons.delete, color: Colors.red),
-                                SizedBox(width: 8),
-                                Text(
-                                  "Xóa quỹ",
-                                  style: TextStyle(color: Colors.red),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
                       ),
                     ),
                   ],
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildMemberAvatars(fund.memberCount),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  const Text(
-                    "Tổng chi tiêu",
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                  Text(
-                    currencyFormat.format(fund.totalSpent),
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildMemberAvatars(int count) {
-    final displayed = count > 3 ? 3 : count;
+  Widget _buildAvatarStack(List<AppUser> members) {
+    if (members.isEmpty) return const SizedBox.shrink();
+
+    final display = members.take(3).toList();
+    final extra = members.length - 3;
+
+    // Tùy chỉnh kích thước avatar
+    final double avatarRadius = 14; // từ 14 → 18 → 20
+    final double overlap = 20; // khoảng cách lệch bên trái
+    final double stackHeight = avatarRadius * 2 + 10;
+    final double stackWidth = overlap * 3 + avatarRadius * 2;
+
+    final fallbackColors = [
+      Colors.red,
+      Colors.blue,
+      Colors.green,
+      Colors.orange,
+      Colors.purple,
+    ];
+
     return SizedBox(
-      width: 110,
-      height: 36,
+      height: stackHeight,
+      width: stackWidth,
       child: Stack(
-        children:
-            List.generate(displayed, (i) {
-              return Positioned(
-                left: i * 24,
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
-                    image: DecorationImage(
-                      image: NetworkImage(
-                        "https://i.pravatar.cc/150?img=${i + 10}",
+        clipBehavior: Clip.none,
+        children: [
+          ...display.asMap().entries.map((entry) {
+            final index = entry.key;
+            final user = entry.value;
+
+            String initial = user.name.isNotEmpty
+                ? user.name.trim()[0].toUpperCase()
+                : "U";
+
+            final bool hasValidAvatar =
+                user.avatarUrl != null &&
+                user.avatarUrl!.trim().isNotEmpty &&
+                user.avatarUrl!.trim() != "null";
+
+            final bgColor = fallbackColors[index % fallbackColors.length];
+
+            return Positioned(
+              left: index * overlap,
+              child: CircleAvatar(
+                radius: avatarRadius,
+                backgroundColor: hasValidAvatar ? Colors.transparent : bgColor,
+                backgroundImage: hasValidAvatar
+                    ? NetworkImage(user.avatarUrl!)
+                    : null,
+                child: hasValidAvatar
+                    ? null
+                    : Text(
+                        initial,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: avatarRadius - 2,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                ),
-              );
-            })..addIf(
-              count > 3,
-              Positioned(
-                left: 72,
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF3F4F6),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
-                  ),
-                  child: Center(
-                    child: Text(
-                      "+${count - 3}",
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
+              ),
+            );
+          }).toList(),
+
+          // +X avatar
+          if (extra > 0)
+            Positioned(
+              left: 3 * overlap,
+              child: CircleAvatar(
+                radius: avatarRadius,
+                backgroundColor: const Color(0xFF333333),
+                child: Text(
+                  "+$extra",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: avatarRadius - 4,
                   ),
                 ),
               ),
             ),
+        ],
       ),
     );
   }
 
-  void _showDeleteDialog(BuildContext context, FundMock fund) {
+  Future<List<AppUser>> _getFundMembers(List<DocumentReference> refs) async {
+    final snapshots = await Future.wait(refs.map((ref) => ref.get()));
+    return snapshots.map((snap) => AppUser.fromFirestore(snap)).toList();
+  }
+
+  void _showDeleteDialog(Fund fund) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text("Xóa quỹ"),
-        content: Text(
-          "Bạn có chắc muốn xóa quỹ “${fund.name}” không? Hành động này không thể hoàn tác.",
-        ),
+        content: Text("Xóa vĩnh viễn “${fund.name}”? Không thể khôi phục!"),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -481,10 +551,7 @@ class MainFundScreen extends StatelessWidget {
           ),
           TextButton(
             onPressed: () {
-              // TODO: gọi hàm xóa trên Firestore
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(const SnackBar(content: Text("Đã xóa quỹ")));
+              _fundService.deleteFund(fund.id, fund.creatorId.id);
               Navigator.pop(context);
             },
             child: const Text("Xóa", style: TextStyle(color: Colors.red)),
@@ -494,74 +561,24 @@ class MainFundScreen extends StatelessWidget {
     );
   }
 
-  Color _getIconBackground(String icon) {
-    switch (icon) {
-      case "plane":
-        return const Color(0xFFDBEAFE);
-      case "utensils":
-        return const Color(0xFFFFEDD5);
-      case "home":
-        return const Color(0xFFF3E8FF);
-      default:
-        return Colors.grey.shade200;
-    }
-  }
-
-  Color _getIconColor(String icon) {
-    switch (icon) {
-      case "plane":
-        return const Color(0xFF2563EB);
-      case "utensils":
-        return const Color(0xFFEA580C);
-      case "home":
-        return const Color(0xFF9333EA);
-      default:
-        return Colors.grey;
-    }
-  }
-
-  IconData _getIconData(String icon) {
-    switch (icon) {
-      case "plane":
-        return Icons.flight;
-      case "utensils":
-        return Icons.restaurant;
-      case "home":
-        return Icons.home;
-      default:
-        return Icons.category;
-    }
-  }
-}
-
-// ========== MODEL & ENUM ==========
-enum FundStatus { open, closed }
-
-class FundMock {
-  final String fundId;
-  final String name;
-  final String icon;
-  final FundStatus status;
-  final String lastUpdated;
-  final int memberCount;
-  final int totalSpent;
-  final String creatorId;
-
-  FundMock({
-    required this.fundId,
-    required this.name,
-    required this.icon,
-    required this.status,
-    required this.lastUpdated,
-    required this.memberCount,
-    required this.totalSpent,
-    required this.creatorId,
-  });
-}
-
-// Extension để dễ thêm điều kiện trong list
-extension ListX<T> on List<Widget> {
-  void addIf(bool condition, Widget widget) {
-    if (condition) add(widget);
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        children: [
+          const SizedBox(height: 60),
+          Icon(Icons.wallet, size: 80, color: Colors.grey[400]),
+          const SizedBox(height: 20),
+          Text(
+            "Chưa có quỹ nào",
+            style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "Bấm nút + để tạo quỹ đầu tiên",
+            style: TextStyle(color: Colors.grey[500]),
+          ),
+        ],
+      ),
+    );
   }
 }
