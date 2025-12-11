@@ -11,8 +11,6 @@ dependencies:
   flutter:
     sdk: flutter
 
-  intl: ^0.20.2 # for date formatting
-
   provider: ^6.1.1 # for state management
 
   firebase_core:

@@ -126,7 +126,7 @@ class AuthService {
 
       return roomId != null && roomId.toString().isNotEmpty;
     } catch (e) {
-      debugPrint("Error checking user roommmm: $e");
+      debugPrint("Error checking user room: $e");
       return false;
     }
   }
