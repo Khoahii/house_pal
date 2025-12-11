@@ -49,17 +49,40 @@ class _CreateFundBottomSheetState extends State<CreateFundBottomSheet> {
     final roomSnap = await roomRef.get();
     final memberRefs = List<DocumentReference>.from(roomSnap['members'] ?? []);
 
+    // Lấy tất cả snapshot của các member refs
     final memberSnapshots = await Future.wait(
       memberRefs.map((ref) => ref.get()),
     );
+
+    // Tạo map để lookup nhanh theo id
+    final Map<String, DocumentSnapshot> snapById = {
+      for (final s in memberSnapshots) s.id: s,
+    };
+
+    // Chuyển thành AppUser và lọc bỏ admin (an toàn nếu role không có)
     final members = memberSnapshots
         .map((snap) => AppUser.fromFirestore(snap))
+        .where((u) => (u.role) != 'admin')
         .toList();
+
+    // Lọc memberRefs tương ứng với users không phải admin
+    final filteredMemberRefs = memberRefs.where((ref) {
+      final snap = snapById[ref.id];
+      if (snap == null) {
+        return false; // phòng hợp lệ nhưng không tìm thấy user -> bỏ
+      }
+      final data = snap.data() as Map<String, dynamic>? ?? {};
+      final role = (data['role'] ?? '').toString();
+      return role != 'admin';
+    }).toList();
 
     setState(() {
       _roomMembers = members;
       _currentRoomRef = roomRef;
-      _selectedMembers.addAll(memberRefs); // mặc định chọn hết
+
+      // đảm bảo không duplicate, chỉ chọn những member đã lọc (mặc định chọn hết)
+      _selectedMembers.clear();
+      _selectedMembers.addAll(filteredMemberRefs);
     });
   }
 

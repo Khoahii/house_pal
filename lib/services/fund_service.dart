@@ -1,8 +1,6 @@
-// lib/services/fund_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/fund.dart';
-import '../models/app_user.dart';
 
 class FundService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -73,10 +71,16 @@ class FundService {
     return _firestore
         .collection('funds')
         .where('members', arrayContains: userRef)
-        .orderBy('createdAt', descending: true)
+        // .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) {
-          return snapshot.docs.map(Fund.fromFirestore).toList();
+          var funds = snapshot.docs.map(Fund.fromFirestore).toList();
+
+          // --- Bổ sung việc sắp xếp thủ công bằng Dart ---
+          // Sắp xếp giảm dần theo thời gian tạo (createdAt)
+          funds.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+          return funds;
         });
   }
 
