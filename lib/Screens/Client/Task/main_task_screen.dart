@@ -1,0 +1,315 @@
+import 'package:flutter/material.dart';
+
+void main() {
+  runApp(const MainTaskScreen());
+}
+
+class MainTaskScreen extends StatelessWidget {
+  const MainTaskScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData.light().copyWith(
+        scaffoldBackgroundColor: const Color(0xFFF9FAFB),
+        textTheme: Theme.of(context).textTheme.apply(fontFamily: 'Roboto'),
+      ),
+      home: const MainTask(),
+    );
+  }
+}
+
+class MainTask extends StatelessWidget {
+  const MainTask({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      // Nút cộng vẫn giữ nguyên
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {},
+        backgroundColor: const Color(0xFF4F46E5),
+        elevation: 4,
+        child: const Icon(Icons.add, color: Colors.white, size: 28),
+      ),
+      
+      body: Stack(
+        children: [
+          // 1. NỀN GRADIENT CỐ ĐỊNH
+          Container(
+            height: 300,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF4F46E5), Color(0xFF9333EA)],
+              ),
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(32),
+                bottomRight: Radius.circular(32),
+              ),
+            ),
+          ),
+
+          // 2. NỘI DUNG CHIA LÀM 2 PHẦN: CỐ ĐỊNH & CUỘN
+          SafeArea(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ================= PHẦN CỐ ĐỊNH (KHÔNG CUỘN) =================
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 24),
+                      
+                      // Header Title
+                      const Text(
+                        'Lịch Việc Nhà',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // Bảng xếp hạng
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: const [
+                                Text(
+                                  '🏆 Bảng Xếp Hạng',
+                                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                                ),
+                                Text(
+                                  'Xem tất cả',
+                                  style: TextStyle(color: Color(0xFFE0E7FF), fontSize: 12),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: const [
+                                LeaderboardItem(name: 'Minh', image: 'https://placehold.co/48x48', isWinner: true),
+                                LeaderboardItem(name: 'Hương', image: 'https://placehold.co/48x48'),
+                                LeaderboardItem(name: 'Tuấn', image: 'https://placehold.co/48x48'),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 80),
+                      
+                    ],
+                  ),
+                ),
+
+                // ================= PHẦN CUỘN (SCROLLABLE) =================
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Tiêu đề danh sách
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Danh Sách Việc',
+                              style: TextStyle(
+                                color: Color(0xFF1F2937),
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF4F46E5),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.sync, color: Colors.white, size: 20),
+                            ),
+                          ],
+                        ),
+                        
+                        const SizedBox(height: 24),
+
+                        // Các thẻ Task
+                        const TaskCardItem(
+                          difficulty: 'Dễ',
+                          difficultyColor: Color(0xFF15803D),
+                          difficultyBg: Color(0xFFDCFCE7),
+                          points: '+5',
+                          title: 'Lau nhà',
+                          description: 'Lau sạch toàn bộ sàn nhà và hành lang',
+                          assignee: 'Minh',
+                          assigneeAvatar: 'https://placehold.co/32x32',
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        const TaskCardItem(
+                          difficulty: 'Trung bình',
+                          difficultyColor: Color(0xFFA16207),
+                          difficultyBg: Color(0xFFFEF9C3),
+                          points: '+10',
+                          title: 'Giặt quần áo',
+                          description: 'Giặt và phơi quần áo cho cả nhà',
+                          assignee: 'Tuấn',
+                          assigneeAvatar: 'https://placehold.co/32x32',
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        const TaskCardItem(
+                          difficulty: 'Khó',
+                          difficultyColor: Color(0xFFB91C1C),
+                          difficultyBg: Color(0xFFFEE2E2),
+                          points: '+15',
+                          title: 'Dọn phòng tắm',
+                          description: 'Vệ sinh toàn bộ phòng tắm và toilet',
+                          assignee: 'Minh',
+                          assigneeAvatar: 'https://placehold.co/32x32',
+                        ),
+                        
+                        // Khoảng trống dưới cùng (quan trọng để list cuộn lên hết không bị FAB che)
+                        const SizedBox(height: 100),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------- CÁC WIDGET CON (GIỮ NGUYÊN) ----------------
+
+class LeaderboardItem extends StatelessWidget {
+  final String name;
+  final String image;
+  final bool isWinner;
+  const LeaderboardItem({super.key, required this.name, required this.image, this.isWinner = false});
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
+              child: CircleAvatar(radius: 24, backgroundImage: NetworkImage(image), backgroundColor: Colors.grey[300]),
+            ),
+            if (isWinner) const Positioned(top: -12, left: 0, right: 0, child: Center(child: Text('👑', style: TextStyle(fontSize: 18)))),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(name, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
+      ],
+    );
+  }
+}
+
+class FilterTab extends StatelessWidget {
+  final String text;
+  final bool isSelected;
+  const FilterTab({super.key, required this.text, required this.isSelected});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(
+        color: isSelected ? const Color(0xFF4F46E5) : Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Center(child: Text(text, style: TextStyle(color: isSelected ? Colors.white : const Color(0xFF4B5563), fontWeight: FontWeight.bold, fontSize: 14))),
+    );
+  }
+}
+
+class TaskCardItem extends StatelessWidget {
+  final String difficulty;
+  final Color difficultyColor;
+  final Color difficultyBg;
+  final String points;
+  final String title;
+  final String description;
+  final String assignee;
+  final String assigneeAvatar;
+  const TaskCardItem({super.key, required this.difficulty, required this.difficultyColor, required this.difficultyBg, required this.points, required this.title, required this.description, required this.assignee, required this.assigneeAvatar});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFF3F4F6)),
+        boxShadow: const [BoxShadow(color: Color(0x0C000000), blurRadius: 4, offset: Offset(0, 2))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: difficultyBg, borderRadius: BorderRadius.circular(20)),
+                child: Text(difficulty, style: TextStyle(color: difficultyColor, fontSize: 11, fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(width: 8),
+              Text(points, style: const TextStyle(color: Color(0xFF4F46E5), fontSize: 14, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(title, style: const TextStyle(color: Color(0xFF1F2937), fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 6),
+          Text(description, style: const TextStyle(color: Color(0xFF6B7280), fontSize: 13, height: 1.4)),
+          const SizedBox(height: 16),
+          const Divider(height: 1, color: Color(0xFFF3F4F6)),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(radius: 14, backgroundImage: NetworkImage(assigneeAvatar), backgroundColor: Colors.grey[200]),
+                  const SizedBox(width: 8),
+                  Text(assignee, style: const TextStyle(color: Color(0xFF374151), fontSize: 14, fontWeight: FontWeight.w600)),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(color: const Color(0xFFEEF2FF), borderRadius: BorderRadius.circular(8)),
+                child: const Text('Chi tiết', style: TextStyle(color: Color(0xFF4F46E5), fontSize: 12, fontWeight: FontWeight.w500)),
+              ),
+            ],
+          )
+        ],
+      ),
+    );
+  }
+}
