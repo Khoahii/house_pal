@@ -114,30 +114,6 @@ class MainTask extends StatelessWidget {
                       
                       const SizedBox(height: 80),
                       
-                      // Bộ lọc (Ngày/Tuần/Tháng)
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color(0x19000000),
-                              blurRadius: 10,
-                              offset: Offset(0, 5),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: const [
-                            Expanded(child: FilterTab(text: 'Ngày', isSelected: false)),
-                            Expanded(child: FilterTab(text: 'Tuần', isSelected: true)),
-                            Expanded(child: FilterTab(text: 'Tháng', isSelected: false)),
-                          ],
-                        ),
-                      ),
-                      
-                      const SizedBox(height: 32),
                     ],
                   ),
                 ),
