@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:house_pal/Screens/Client/Funds/main_screen.dart';
 import 'package:house_pal/Screens/Client/Home/client_home.dart';
 import 'package:house_pal/Screens/Client/News/news.dart';
-import 'package:house_pal/Screens/Client/Task/task.dart';
+import 'package:house_pal/Screens/Client/Task/main_task_screen.dart';
 import 'package:house_pal/Screens/Commom/Profile/profile.dart';
 
 class MainScreen extends StatefulWidget {
@@ -18,8 +18,8 @@ class _MainScreenState extends State<MainScreen> {
   // Danh sách các trang
   final List<Widget> _pages = [
     ClientHome(),
-    TaskScreen(),
     // FundScreen(),
+    MainTaskScreen(),
     MainFundScreen(),
     NewsScreen(),
     ProfileScreen(),
