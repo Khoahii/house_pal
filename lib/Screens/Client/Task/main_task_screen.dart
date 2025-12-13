@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import 'create_task_screen.dart';
 void main() {
   runApp(const MainTaskScreen());
 }
@@ -31,12 +31,20 @@ class _MainTaskState extends State<MainTask> {
   Widget build(BuildContext context) {
     return Scaffold(
       // Nút cộng vẫn giữ nguyên
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {},
-        backgroundColor: const Color(0xFF4F46E5),
-        elevation: 4,
-        child: const Icon(Icons.add, color: Colors.white, size: 28),
+     floatingActionButton: FloatingActionButton(
+  onPressed: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const CreateTaskScreen(),
       ),
+    );
+  },
+  backgroundColor: const Color(0xFF4F46E5),
+  elevation: 4,
+  child: const Icon(Icons.add, color: Colors.white, size: 28),
+),
+
 
       body: Stack(
         children: [
