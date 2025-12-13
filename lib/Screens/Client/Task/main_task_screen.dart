@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'create_task_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:house_pal/models/app_user.dart';
 void main() {
   runApp(const MainTaskScreen());
 }
@@ -27,23 +30,57 @@ class MainTask extends StatefulWidget {
 }
 
 class _MainTaskState extends State<MainTask> {
+ AppUser? currentUser;
+  bool isLoadingUser = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentUser();
+  }
+
+  Future<void> _loadCurrentUser() async {
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+
+    if (firebaseUser == null) {
+      setState(() => isLoadingUser = false);
+      return;
+    }
+
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(firebaseUser.uid)
+        .get();
+
+    if (doc.exists) {
+      currentUser = AppUser.fromFirestore(doc);
+    }
+
+    setState(() => isLoadingUser = false);
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       // Nút cộng vẫn giữ nguyên
-     floatingActionButton: FloatingActionButton(
-  onPressed: () {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const CreateTaskScreen(),
-      ),
-    );
-  },
-  backgroundColor: const Color(0xFF4F46E5),
-  elevation: 4,
-  child: const Icon(Icons.add, color: Colors.white, size: 28),
-),
+   floatingActionButton: isLoadingUser
+    ? null
+    : (currentUser != null && currentUser!.canCreateTask)
+        ? FloatingActionButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const CreateTaskScreen(),
+                ),
+              );
+            },
+            backgroundColor: const Color(0xFF4F46E5),
+            elevation: 4,
+            child: const Icon(Icons.add, color: Colors.white, size: 28),
+          )
+        : null,
 
 
       body: Stack(
