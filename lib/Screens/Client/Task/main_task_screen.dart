@@ -1,4 +1,11 @@
 import 'package:flutter/material.dart';
+import 'create_task_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:house_pal/models/app_user.dart';
+import 'package:house_pal/Screens/Client/Task/auto_rotate_screen.dart';
+import 'package:house_pal/Screens/Client/Task/ranking_screen.dart';
+import 'package:house_pal/Screens/Client/Task/task_detail_screen.dart ';
 
 void main() {
   runApp(const MainTaskScreen());
@@ -27,16 +34,56 @@ class MainTask extends StatefulWidget {
 }
 
 class _MainTaskState extends State<MainTask> {
+  AppUser? currentUser;
+  bool isLoadingUser = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentUser();
+  }
+
+  Future<void> _loadCurrentUser() async {
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+
+    if (firebaseUser == null) {
+      setState(() => isLoadingUser = false);
+      return;
+    }
+
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(firebaseUser.uid)
+        .get();
+
+    if (doc.exists) {
+      currentUser = AppUser.fromFirestore(doc);
+    }
+
+    setState(() => isLoadingUser = false);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       // Nút cộng vẫn giữ nguyên
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {},
-        backgroundColor: const Color(0xFF4F46E5),
-        elevation: 4,
-        child: const Icon(Icons.add, color: Colors.white, size: 28),
-      ),
+      floatingActionButton: isLoadingUser
+          ? null
+          : (currentUser != null && currentUser!.canCreateTask)
+          ? FloatingActionButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const CreateTaskScreen(),
+                  ),
+                );
+              },
+              backgroundColor: const Color(0xFF4F46E5),
+              elevation: 4,
+              child: const Icon(Icons.add, color: Colors.white, size: 28),
+            )
+          : null,
 
       body: Stack(
         children: [
@@ -92,8 +139,8 @@ class _MainTaskState extends State<MainTask> {
                           children: [
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: const [
-                                Text(
+                              children: [
+                                const Text(
                                   '🏆 Bảng Xếp Hạng',
                                   style: TextStyle(
                                     color: Colors.white,
@@ -101,15 +148,27 @@ class _MainTaskState extends State<MainTask> {
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                Text(
-                                  'Xem tất cả',
-                                  style: TextStyle(
-                                    color: Color(0xFFE0E7FF),
-                                    fontSize: 12,
+
+                                InkWell(
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => const RankingScreen(),
+                                      ),
+                                    );
+                                  },
+                                  child: const Text(
+                                    'Xem tất cả',
+                                    style: TextStyle(
+                                      color: Color(0xFFE0E7FF),
+                                      fontSize: 12,
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
+
                             const SizedBox(height: 16),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -157,23 +216,20 @@ class _MainTaskState extends State<MainTask> {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            // Container(
-                            //   width: 40,
-                            //   height: 40,
-                            //   decoration: const BoxDecoration(
-                            //     color: Color(0xFF4F46E5),
-                            //     shape: BoxShape.circle,
-                            //   ),
-                            //   child: const Icon(Icons.sync, color: Colors.white, size: 20),
-                            // ),
+                            //Nút nagivator đến auto rotate screen
                             Material(
                               color: const Color(0xFF4F46E5),
                               shape: const CircleBorder(),
                               child: InkWell(
                                 customBorder: const CircleBorder(),
                                 onTap: () {
-                                  // TODO: xử lý khi nhấn nút refresh
-                                  print("Đã nhấn nút refresh");
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const AutoRotateScreen(),
+                                    ),
+                                  );
                                 },
                                 child: const SizedBox(
                                   width: 40,
@@ -194,7 +250,7 @@ class _MainTaskState extends State<MainTask> {
                         const SizedBox(height: 24),
 
                         // Các thẻ Task
-                        const TaskCardItem(
+                        TaskCardItem(
                           difficulty: 'Dễ',
                           difficultyColor: Color(0xFF15803D),
                           difficultyBg: Color(0xFFDCFCE7),
@@ -203,11 +259,19 @@ class _MainTaskState extends State<MainTask> {
                           description: 'Lau sạch toàn bộ sàn nhà và hành lang',
                           assignee: 'Minh',
                           assigneeAvatar: 'https://placehold.co/32x32',
+                          onDetailTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const TaskDetailScreen(),
+                              ),
+                            );
+                          },
                         ),
 
                         const SizedBox(height: 16),
 
-                        const TaskCardItem(
+                        TaskCardItem(
                           difficulty: 'Trung bình',
                           difficultyColor: Color(0xFFA16207),
                           difficultyBg: Color(0xFFFEF9C3),
@@ -216,11 +280,19 @@ class _MainTaskState extends State<MainTask> {
                           description: 'Giặt và phơi quần áo cho cả nhà',
                           assignee: 'Tuấn',
                           assigneeAvatar: 'https://placehold.co/32x32',
+                          onDetailTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const TaskDetailScreen(),
+                              ),
+                            );
+                          },
                         ),
 
                         const SizedBox(height: 16),
 
-                        const TaskCardItem(
+                        TaskCardItem(
                           difficulty: 'Khó',
                           difficultyColor: Color(0xFFB91C1C),
                           difficultyBg: Color(0xFFFEE2E2),
@@ -229,6 +301,14 @@ class _MainTaskState extends State<MainTask> {
                           description: 'Vệ sinh toàn bộ phòng tắm và toilet',
                           assignee: 'Minh',
                           assigneeAvatar: 'https://placehold.co/32x32',
+                          onDetailTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const TaskDetailScreen(),
+                              ),
+                            );
+                          },
                         ),
 
                         // Khoảng trống dưới cùng (quan trọng để list cuộn lên hết không bị FAB che)
@@ -336,6 +416,8 @@ class TaskCardItem extends StatelessWidget {
   final String description;
   final String assignee;
   final String assigneeAvatar;
+  final VoidCallback onDetailTap;
+
   const TaskCardItem({
     super.key,
     required this.difficulty,
@@ -346,6 +428,7 @@ class TaskCardItem extends StatelessWidget {
     required this.description,
     required this.assignee,
     required this.assigneeAvatar,
+    required this.onDetailTap,
   });
   @override
   Widget build(BuildContext context) {
@@ -449,12 +532,26 @@ class TaskCardItem extends StatelessWidget {
                   color: const Color(0xFFEEF2FF),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Text(
-                  'Chi tiết',
-                  style: TextStyle(
-                    color: Color(0xFF4F46E5),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
+                child: InkWell(
+                  onTap: onDetailTap,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEEF2FF),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text(
+                      'Chi tiết',
+                      style: TextStyle(
+                        color: Color(0xFF4F46E5),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ),
                 ),
               ),
