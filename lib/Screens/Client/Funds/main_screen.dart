@@ -66,52 +66,6 @@ class _MainFundScreenState extends State<MainFundScreen> {
         elevation: 0,
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.black87,
-        actions: [
-          // DÙNG StreamBuilder Ở ĐÂY để hiển thị tên và avatar
-          StreamBuilder<AppUser?>(
-            stream: _currentUserStream,
-            builder: (context, snapshot) {
-              final user = snapshot.data;
-              final avatarUrl = user?.avatarUrl;
-              final name = user?.name ?? "User";
-
-              return Row(
-                children: [
-                  Text(
-                    "Xin chào, ${name.split(' ').last}!",
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-
-                  //- press logout tạm
-                  GestureDetector(
-                    // onTap: () => _authService.signOut(),
-                    child: CircleAvatar(
-                      radius: 18,
-                      backgroundColor: const Color(0xFF4F46E5),
-                      backgroundImage: avatarUrl != null
-                          ? NetworkImage(avatarUrl)
-                          : null,
-                      child: avatarUrl == null
-                          ? Text(
-                              name.isNotEmpty ? name[0].toUpperCase() : "U",
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            )
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                ],
-              );
-            },
-          ),
-        ],
       ),
 
       // BỌC StreamBuilder CỦA DANH SÁCH QUỸ BÊN TRONG StreamBuilder CỦA USER
@@ -410,7 +364,7 @@ class _MainFundScreenState extends State<MainFundScreen> {
                         const SizedBox(width: 8),
                         IconButton(
                           icon: const Icon(Icons.more_vert, color: Colors.grey),
-                          onPressed: () => _showDeleteDialog(fund),
+                          onPressed: () => _showFundActions(fund),
                         ),
                       ],
                     ],
@@ -487,6 +441,48 @@ class _MainFundScreenState extends State<MainFundScreen> {
       ),
     );
   }
+
+  void _openEditFundSheet(Fund fund) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => CreateFundBottomSheet(fund: fund),
+    );
+  }
+
+
+  void _showFundActions(Fund fund) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 12),
+          ListTile(
+            leading: const Icon(Icons.edit),
+            title: const Text("Chỉnh sửa quỹ"),
+            onTap: () {
+              Navigator.pop(context);
+              _openEditFundSheet(fund);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.delete, color: Colors.red),
+            title: const Text("Xóa quỹ", style: TextStyle(color: Colors.red)),
+            onTap: () {
+              Navigator.pop(context);
+              _showDeleteDialog(fund);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
 
   Widget _buildEmptyState() {
     return Center(
