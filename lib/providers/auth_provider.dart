@@ -7,7 +7,7 @@ import '../services/auth_service.dart';
  * Nhiệm vụ là lưu thông user toàn cục để dùng ở mọi screen 
  */
 
-class AuthProvider with ChangeNotifier {
+class MyAuthProvider with ChangeNotifier {
   final AuthService _authService = AuthService();
 
   AppUser? _currentUser;
@@ -16,7 +16,7 @@ class AuthProvider with ChangeNotifier {
   bool get isLoggedIn => _currentUser != null;
   String? get uid => FirebaseAuth.instance.currentUser?.uid;
 
-  AuthProvider() {
+  MyAuthProvider() {
     // Tự động lắng nghe khi app khởi động
     FirebaseAuth.instance.authStateChanges().listen((firebaseUser) async {
       if (firebaseUser == null) {
