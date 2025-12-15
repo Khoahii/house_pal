@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:house_pal/Screens/Client/Funds/components/block_avatar.dart';
+import 'package:house_pal/Screens/Client/Funds/create_or_edit_Expense.dart';
 import 'package:house_pal/models/app_user.dart';
 import 'package:house_pal/models/expense.dart';
 import 'package:house_pal/models/fund.dart';
@@ -212,7 +213,7 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
             Align(
               alignment: Alignment.centerLeft,
               child: const Text(
-                'Thành viên',
+                'Thành viên quỹ',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ),
@@ -231,13 +232,6 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
                     final members = snapshot.data!;
                     return AvatarStack(members: members);
                   },
-                ),
-                Text(
-                  'Chỉnh sửa',
-                  style: const TextStyle(
-                    color: Color(0xFF4F46E5),
-                    fontWeight: FontWeight.w600,
-                  ),
                 ),
               ],
             ),
@@ -333,10 +327,13 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
         ),
         child: ElevatedButton(
           onPressed: () {
-            // TODO: Mở bottom sheet thêm chi tiêu
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Chức năng thêm chi tiêu đang phát triển 🚀'),
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => CreateOrEditExpenseScreen(
+                  fundId: widget.fund.id,
+                  memberRefs: widget.fund.members,
+                ),
               ),
             );
           },

@@ -6,18 +6,18 @@ import 'package:house_pal/models/fund.dart';
 import 'package:house_pal/services/fund_service.dart';
 import 'package:house_pal/ultils/fund/fund_category.dart';
 
-class CreateFundBottomSheet extends StatefulWidget {
+class CreateOrEditFundBottomSheet extends StatefulWidget {
   final Fund? fund;
 
-  const CreateFundBottomSheet({super.key, this.fund});
+  const CreateOrEditFundBottomSheet({super.key, this.fund});
 
   bool get isEdit => fund != null;
 
   @override
-  State<CreateFundBottomSheet> createState() => _CreateFundBottomSheetState();
+  State<CreateOrEditFundBottomSheet> createState() => _CreateOrEditFundBottomSheetState();
 }
 
-class _CreateFundBottomSheetState extends State<CreateFundBottomSheet> {
+class _CreateOrEditFundBottomSheetState extends State<CreateOrEditFundBottomSheet> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
 

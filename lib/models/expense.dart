@@ -8,7 +8,7 @@ class Expense {
   final DateTime date;
   final String iconId;
   final String iconEmoji;
-  final String splitType;
+  final String splitType; //-  "equal" | "custom" | "percentage"
   final Map<DocumentReference, int> splitDetail;
   final DateTime createdAt;
 

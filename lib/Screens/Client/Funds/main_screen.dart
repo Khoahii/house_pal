@@ -8,7 +8,7 @@ import 'package:house_pal/models/fund.dart';
 import 'package:house_pal/services/auth_service.dart';
 import 'package:house_pal/services/fund_service.dart';
 import 'package:intl/intl.dart';
-import 'create_fund_bottom_sheet.dart';
+import 'create_or_edit_fund_bottom_sheet.dart';
 
 class MainFundScreen extends StatefulWidget {
   const MainFundScreen({super.key});
@@ -49,7 +49,7 @@ class _MainFundScreenState extends State<MainFundScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => const CreateFundBottomSheet(),
+      builder: (_) => const CreateOrEditFundBottomSheet(),
     );
   }
 
@@ -447,7 +447,7 @@ class _MainFundScreenState extends State<MainFundScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => CreateFundBottomSheet(fund: fund),
+      builder: (_) => CreateOrEditFundBottomSheet(fund: fund),
     );
   }
 
