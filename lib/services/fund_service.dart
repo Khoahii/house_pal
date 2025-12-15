@@ -64,6 +64,23 @@ class FundService {
     return Fund.fromFirestore(doc);
   }
 
+  //- Cập nhật quỹ
+  Future<void> updateFund({
+    required String fundId,
+    required String name,
+    required String iconId,
+    required String iconEmoji,
+    required List<DocumentReference> members,
+  }) async {
+    await _firestore.collection('funds').doc(fundId).update({
+      'name': name,
+      'iconId': iconId,
+      'iconEmoji': iconEmoji,
+      'members': members,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   // Lấy stream tất cả quỹ mà user hiện tại đang tham gia (dùng trong MainFundScreen)
   Stream<List<Fund>> getMyFundsStream() {
     final userRef = _firestore.collection('users').doc(currentUserId);
