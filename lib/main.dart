@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:house_pal/Screens/Commom/Auth/auth_wrapper.dart';
-import 'package:house_pal/Screens/Commom/Splash/splash_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:house_pal/providers/auth_provider.dart';
 import 'package:provider/provider.dart';
@@ -12,7 +11,7 @@ void main() async {
   runApp(
     //- đăng ký state user global
     MultiProvider(
-      providers: [ChangeNotifierProvider(create: (_) => AuthProvider())],
+      providers: [ChangeNotifierProvider(create: (_) => MyAuthProvider())],
       child: MyApp(),
     ),
   );

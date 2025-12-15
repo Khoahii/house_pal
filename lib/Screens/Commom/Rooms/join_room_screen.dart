@@ -51,7 +51,7 @@ class JoinRoomScreen extends StatelessWidget {
             itemCount: rooms.length,
             itemBuilder: (context, index) {
               final room = rooms[index];
-              return Consumer<AuthProvider>(
+              return Consumer<MyAuthProvider>(
                 builder: (context, authProvider, child) {
                   final currentUser = authProvider.currentUser;
                   if (currentUser == null) return SizedBox();
