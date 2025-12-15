@@ -1,20 +1,23 @@
-// lib/screens/create_fund_bottom_sheet.dart
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:house_pal/models/app_user.dart';
+import 'package:house_pal/models/fund.dart';
 import 'package:house_pal/services/fund_service.dart';
 import 'package:house_pal/ultils/fund/fund_category.dart';
 
-class CreateFundBottomSheet extends StatefulWidget {
-  const CreateFundBottomSheet({super.key});
+class CreateOrEditFundBottomSheet extends StatefulWidget {
+  final Fund? fund;
+
+  const CreateOrEditFundBottomSheet({super.key, this.fund});
+
+  bool get isEdit => fund != null;
 
   @override
-  State<CreateFundBottomSheet> createState() => _CreateFundBottomSheetState();
+  State<CreateOrEditFundBottomSheet> createState() => _CreateOrEditFundBottomSheetState();
 }
 
-class _CreateFundBottomSheetState extends State<CreateFundBottomSheet> {
+class _CreateOrEditFundBottomSheetState extends State<CreateOrEditFundBottomSheet> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
 
@@ -31,6 +34,16 @@ class _CreateFundBottomSheetState extends State<CreateFundBottomSheet> {
   void initState() {
     super.initState();
     _loadRoomAndMembers();
+
+    if (widget.isEdit) {
+      final fund = widget.fund!;
+
+      _nameController.text = fund.name;
+
+      _selectedCategory = fundCategories.firstWhere((c) => c.id == fund.iconId);
+
+      _selectedMembers.addAll(fund.members);
+    }
   }
 
   Future<void> _loadRoomAndMembers() async {
@@ -86,7 +99,7 @@ class _CreateFundBottomSheetState extends State<CreateFundBottomSheet> {
     });
   }
 
-  Future<void> _createFund() async {
+  Future<void> _submitFund() async {
     if (!_formKey.currentState!.validate() ||
         _selectedCategory == null ||
         _currentRoomRef == null ||
@@ -100,33 +113,30 @@ class _CreateFundBottomSheetState extends State<CreateFundBottomSheet> {
     setState(() => _isLoading = true);
 
     try {
-      await _fundService.createFund(
-        name: _nameController.text.trim(),
-        iconId: _selectedCategory!.id,
-        iconEmoji: _selectedCategory!.icon,
-        roomRef: _currentRoomRef!,
-        memberRefs: _selectedMembers.toList(),
-      );
+      if (widget.isEdit) {
+        await _fundService.updateFund(
+          fundId: widget.fund!.id,
+          name: _nameController.text.trim(),
+          iconId: _selectedCategory!.id,
+          iconEmoji: _selectedCategory!.icon,
+          members: _selectedMembers.toList(),
+        );
+      } else {
+        await _fundService.createFund(
+          name: _nameController.text.trim(),
+          iconId: _selectedCategory!.id,
+          iconEmoji: _selectedCategory!.icon,
+          roomRef: _currentRoomRef!,
+          memberRefs: _selectedMembers.toList(),
+        );
+      }
 
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Tạo quỹ thành công!"),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Lỗi: $e"), backgroundColor: Colors.red),
-        );
-      }
+      if (mounted) Navigator.pop(context);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -162,10 +172,8 @@ class _CreateFundBottomSheetState extends State<CreateFundBottomSheet> {
               ),
               const SizedBox(height: 16),
 
-              const Text(
-                "Tạo quỹ mới",
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-              ),
+              Text(widget.isEdit ? "Chỉnh sửa quỹ" : "Tạo quỹ mới"),
+
               const SizedBox(height: 24),
 
               // Tên quỹ
@@ -348,7 +356,8 @@ class _CreateFundBottomSheetState extends State<CreateFundBottomSheet> {
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton(
-                  onPressed: _isLoading ? null : _createFund,
+                  onPressed: _isLoading ? null : _submitFund,
+
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF4F46E5),
                     foregroundColor: Colors.white,
@@ -366,12 +375,7 @@ class _CreateFundBottomSheetState extends State<CreateFundBottomSheet> {
                             strokeWidth: 2.5,
                           ),
                         )
-                      : const Text(
-                          "Tạo quỹ",
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
+                      : Text(widget.isEdit ? "Lưu thay đổi" : "Tạo quỹ",
                         ),
                 ),
               ),

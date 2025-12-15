@@ -1,12 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:house_pal/Screens/Client/Funds/components/block_avatar.dart';
+import 'package:house_pal/Screens/Client/Funds/fund_detail.dart';
 import 'package:house_pal/models/app_user.dart';
 import 'package:house_pal/models/fund.dart';
 import 'package:house_pal/services/auth_service.dart';
 import 'package:house_pal/services/fund_service.dart';
 import 'package:intl/intl.dart';
-import 'create_fund_bottom_sheet.dart';
+import 'create_or_edit_fund_bottom_sheet.dart';
 
 class MainFundScreen extends StatefulWidget {
   const MainFundScreen({super.key});
@@ -47,7 +49,7 @@ class _MainFundScreenState extends State<MainFundScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => const CreateFundBottomSheet(),
+      builder: (_) => const CreateOrEditFundBottomSheet(),
     );
   }
 
@@ -64,52 +66,6 @@ class _MainFundScreenState extends State<MainFundScreen> {
         elevation: 0,
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.black87,
-        actions: [
-          // DÙNG StreamBuilder Ở ĐÂY để hiển thị tên và avatar
-          StreamBuilder<AppUser?>(
-            stream: _currentUserStream,
-            builder: (context, snapshot) {
-              final user = snapshot.data;
-              final avatarUrl = user?.avatarUrl;
-              final name = user?.name ?? "User";
-
-              return Row(
-                children: [
-                  Text(
-                    "Xin chào, ${name.split(' ').last}!",
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-
-                  //- press logout tạm
-                  GestureDetector(
-                    onTap: () => _authService.signOut(),
-                    child: CircleAvatar(
-                      radius: 18,
-                      backgroundColor: const Color(0xFF4F46E5),
-                      backgroundImage: avatarUrl != null
-                          ? NetworkImage(avatarUrl)
-                          : null,
-                      child: avatarUrl == null
-                          ? Text(
-                              name.isNotEmpty ? name[0].toUpperCase() : "U",
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            )
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                ],
-              );
-            },
-          ),
-        ],
       ),
 
       // BỌC StreamBuilder CỦA DANH SÁCH QUỸ BÊN TRONG StreamBuilder CỦA USER
@@ -316,219 +272,144 @@ class _MainFundScreenState extends State<MainFundScreen> {
         child: const Icon(Icons.delete, color: Colors.white, size: 28),
       ),
       onDismissed: (_) => _fundService.deleteFund(fund.id, fund.creatorId.id),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey.shade200),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+      child: GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => FundDetailScreen(fund: fund),
             ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(12),
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey.shade200),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          fund.iconEmoji,
+                          style: const TextStyle(fontSize: 28),
+                        ),
                       ),
-                      child: Text(
-                        fund.iconEmoji,
-                        style: const TextStyle(fontSize: 28),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          fund.name,
-                          style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.bold,
+                      const SizedBox(width: 16),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            fund.name,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          "Cập nhật gần đây",
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 13,
+                          const SizedBox(height: 4),
+                          Text(
+                            "Cập nhật gần đây",
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 13,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-
-                // —— CHỈ ADMIN, LEADER, CREATOR MỚI THẤY MORE VERTICAL ——
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.green[50],
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        "Đang mở",
-                        style: TextStyle(
-                          color: Colors.green[700],
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-
-                    // Chỉ hiển thị IconButton nếu có quyền xóa
-                    if (canDelete) ...[
-                      const SizedBox(width: 8),
-                      IconButton(
-                        icon: const Icon(Icons.more_vert, color: Colors.grey),
-                        onPressed: () => _showDeleteDialog(fund),
+                        ],
                       ),
                     ],
-                  ],
-                ),
-              ],
-            ),
+                  ),
 
-            const SizedBox(height: 16),
-            // avatar + totalSpent
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                FutureBuilder<List<AppUser>>(
-                  future: _getFundMembers(fund.members),
-                  builder: (context, snapshot) {
-                    if (!snapshot.hasData)
-                      return const SizedBox(
-                        width: 100,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      );
-                    final members = snapshot.data!;
-                    return _buildAvatarStack(members);
-                  },
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    const Text(
-                      "Tổng chi tiêu",
-                      style: TextStyle(color: Colors.grey, fontSize: 13),
-                    ),
-                    Text(
-                      currencyFormat.format(fund.totalSpent),
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAvatarStack(List<AppUser> members) {
-    if (members.isEmpty) return const SizedBox.shrink();
-
-    final display = members.take(3).toList();
-    final extra = members.length - 3;
-
-    // Tùy chỉnh kích thước avatar
-    final double avatarRadius = 14; // từ 14 → 18 → 20
-    final double overlap = 20; // khoảng cách lệch bên trái
-    final double stackHeight = avatarRadius * 2 + 10;
-    final double stackWidth = overlap * 3 + avatarRadius * 2;
-
-    final fallbackColors = [
-      Colors.red,
-      Colors.blue,
-      Colors.green,
-      Colors.orange,
-      Colors.purple,
-    ];
-
-    return SizedBox(
-      height: stackHeight,
-      width: stackWidth,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          ...display.asMap().entries.map((entry) {
-            final index = entry.key;
-            final user = entry.value;
-
-            String initial = user.name.isNotEmpty
-                ? user.name.trim()[0].toUpperCase()
-                : "U";
-
-            final bool hasValidAvatar =
-                user.avatarUrl != null &&
-                user.avatarUrl!.trim().isNotEmpty &&
-                user.avatarUrl!.trim() != "null";
-
-            final bgColor = fallbackColors[index % fallbackColors.length];
-
-            return Positioned(
-              left: index * overlap,
-              child: CircleAvatar(
-                radius: avatarRadius,
-                backgroundColor: hasValidAvatar ? Colors.transparent : bgColor,
-                backgroundImage: hasValidAvatar
-                    ? NetworkImage(user.avatarUrl!)
-                    : null,
-                child: hasValidAvatar
-                    ? null
-                    : Text(
-                        initial,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: avatarRadius - 2,
-                          fontWeight: FontWeight.w600,
+                  // —— CHỈ ADMIN, LEADER, CREATOR MỚI THẤY MORE VERTICAL ——
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.green[50],
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          "Đang mở",
+                          style: TextStyle(
+                            color: Colors.green[700],
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
-              ),
-            );
-          }).toList(),
 
-          // +X avatar
-          if (extra > 0)
-            Positioned(
-              left: 3 * overlap,
-              child: CircleAvatar(
-                radius: avatarRadius,
-                backgroundColor: const Color(0xFF333333),
-                child: Text(
-                  "+$extra",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: avatarRadius - 4,
+                      // Chỉ hiển thị IconButton nếu có quyền xóa
+                      if (canDelete) ...[
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.more_vert, color: Colors.grey),
+                          onPressed: () => _showFundActions(fund),
+                        ),
+                      ],
+                    ],
                   ),
-                ),
+                ],
               ),
-            ),
-        ],
+
+              const SizedBox(height: 16),
+              // avatar + totalSpent
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  FutureBuilder<List<AppUser>>(
+                    future: _getFundMembers(fund.members),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData)
+                        return const SizedBox(
+                          width: 100,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        );
+                      final members = snapshot.data!;
+                      return AvatarStack(members: members);
+                    },
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text(
+                        "Tổng chi tiêu",
+                        style: TextStyle(color: Colors.grey, fontSize: 13),
+                      ),
+                      Text(
+                        currencyFormat.format(fund.totalSpent),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -560,6 +441,48 @@ class _MainFundScreenState extends State<MainFundScreen> {
       ),
     );
   }
+
+  void _openEditFundSheet(Fund fund) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => CreateOrEditFundBottomSheet(fund: fund),
+    );
+  }
+
+
+  void _showFundActions(Fund fund) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 12),
+          ListTile(
+            leading: const Icon(Icons.edit),
+            title: const Text("Chỉnh sửa quỹ"),
+            onTap: () {
+              Navigator.pop(context);
+              _openEditFundSheet(fund);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.delete, color: Colors.red),
+            title: const Text("Xóa quỹ", style: TextStyle(color: Colors.red)),
+            onTap: () {
+              Navigator.pop(context);
+              _showDeleteDialog(fund);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
 
   Widget _buildEmptyState() {
     return Center(

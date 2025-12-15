@@ -166,7 +166,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ElevatedButton(
                     onPressed: () async {
                       await FirebaseAuth.instance.signOut();
-                      // AuthProvider sẽ tự động cập nhật currentUser = null
+                      // MyAuthProvider sẽ tự động cập nhật currentUser = null
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.grey[300],

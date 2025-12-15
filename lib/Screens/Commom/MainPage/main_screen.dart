@@ -18,7 +18,6 @@ class _MainScreenState extends State<MainScreen> {
   // Danh sách các trang
   final List<Widget> _pages = [
     ClientHome(),
-    // FundScreen(),
     MainTaskScreen(),
     MainFundScreen(),
     NewsScreen(),
