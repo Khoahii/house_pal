@@ -1,7 +1,29 @@
 import 'package:flutter/material.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  /// Giả lập role hiện tại (sau này lấy từ AuthProvider)
+  final String currentUserRole = "admin";
+
+  /// Danh sách thành viên (mock data)
+  final List<Map<String, String>> members = [
+    {"name": "Nguyễn Minh An", "role": "admin"},
+    {"name": "Anh Nguyễn", "role": "room_leader"},
+    {"name": "Chi", "role": "member"},
+    {"name": "Bình", "role": "member"},
+  ];
+
+  final Map<String, String> roleLabel = {
+    "admin": "Admin",
+    "room_leader": "Room Leader",
+    "member": "Member",
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -22,27 +44,18 @@ class ProfileScreen extends StatelessWidget {
                   shape: BoxShape.circle,
                   border: Border.all(color: Colors.deepPurple, width: 2),
                 ),
-                child: const Icon(
-                  Icons.person,
-                  size: 50,
-                  color: Colors.grey,
-                ),
+                child: const Icon(Icons.person, size: 50, color: Colors.grey),
               ),
 
               const SizedBox(height: 12),
 
-              // ===== NAME =====
               const Text(
                 "Nguyễn Minh An",
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
 
               const SizedBox(height: 6),
 
-              // ===== ROLE (ADMIN NHÀ) - ĐÃ CHUYỂN XUỐNG DƯỚI =====
               Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -60,55 +73,32 @@ class ProfileScreen extends StatelessWidget {
                 ),
               ),
 
-              const SizedBox(height: 6),
-
-              // ===== ROOM INFO =====
-              
               const SizedBox(height: 30),
 
               // ===== QUẢN LÝ =====
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  "Quản lý",
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey[700],
-                  ),
-                ),
-              ),
+              _sectionTitle("Quản lý"),
 
-              const SizedBox(height: 12),
+              _menuCard(icon: Icons.group, title: "Thành viên trong nhà"),
+              _menuCard(icon: Icons.calendar_month, title: "Lịch việc nhà"),
+              _menuCard(icon: Icons.attach_money, title: "Quỹ chung"),
+              _menuCard(icon: Icons.emoji_events, title: "Bảng xếp hạng"),
 
-              _menuCard(
-                icon: Icons.group,
-                title: "Thành viên trong nhà",
-              ),
-              _menuCard(
-                icon: Icons.calendar_month,
-                title: "Lịch việc nhà",
-              ),
-              _menuCard(
-                icon: Icons.attach_money,
-                title: "Quỹ chung",
-              ),
-              _menuCard(
-                icon: Icons.emoji_events,
-                title: "Bảng xếp hạng",
-              ),
-
-              const SizedBox(height: 16),
-
-              // ===== RỜI KHỎI NHÀ =====
-              _dangerCard(
-                icon: Icons.exit_to_app,
-                title: "Rời khỏi nhà",
-              ),
+              /// ===============================
+              /// PHÂN QUYỀN – CHỈ ADMIN THẤY
+              /// ===============================
+              if (currentUserRole == "admin") ...[
+                const SizedBox(height: 30),
+                _sectionTitle("Phân quyền thành viên"),
+                const SizedBox(height: 8),
+                _roleManagementCard(),
+              ],
 
               const SizedBox(height: 20),
 
-              // ===== ĐĂNG XUẤT =====
+              _dangerCard(icon: Icons.exit_to_app, title: "Rời khỏi nhà"),
+
+              const SizedBox(height: 20),
+
               ElevatedButton(
                 onPressed: () {},
                 style: ElevatedButton.styleFrom(
@@ -143,8 +133,74 @@ class ProfileScreen extends StatelessWidget {
   }
 
   // ======================
-  // MENU ITEM
+  // PHÂN QUYỀN UI
   // ======================
+  Widget _roleManagementCard() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        children: members.asMap().entries.map((entry) {
+          final index = entry.key;
+          final member = entry.value;
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              children: [
+                const Icon(Icons.person_outline, color: Colors.deepPurple),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    member["name"]!,
+                    style: const TextStyle(fontSize: 15),
+                  ),
+                ),
+                DropdownButton<String>(
+                  value: member["role"],
+                  underline: const SizedBox(),
+                  items: roleLabel.entries
+                      .map(
+                        (e) => DropdownMenuItem(
+                          value: e.key,
+                          child: Text(e.value),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      members[index]["role"] = value!;
+                    });
+                  },
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // ======================
+  // UI HELPERS
+  // ======================
+  Widget _sectionTitle(String title) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+          color: Colors.grey[700],
+        ),
+      ),
+    );
+  }
+
   Widget _menuCard({required IconData icon, required String title}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -160,10 +216,7 @@ class ProfileScreen extends StatelessWidget {
           Expanded(
             child: Text(
               title,
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
+              style: const TextStyle(fontSize: 15),
             ),
           ),
           const Icon(Icons.chevron_right, color: Colors.grey),
@@ -172,9 +225,6 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  // ======================
-  // DANGER ITEM
-  // ======================
   Widget _dangerCard({required IconData icon, required String title}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -191,7 +241,6 @@ class ProfileScreen extends StatelessWidget {
               title,
               style: const TextStyle(
                 fontSize: 15,
-                fontWeight: FontWeight.w500,
                 color: Colors.red,
               ),
             ),
