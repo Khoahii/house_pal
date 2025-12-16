@@ -66,7 +66,25 @@ class _CreateOrEditExpenseScreenState extends State<CreateOrEditExpenseScreen> {
     _paidBy = e.paidBy;
     _date = e.date;
     _splitType = e.splitType;
-    _splitDetail.addAll(e.splitDetail);
+
+    _splitDetail.clear();
+
+    // 🔥 Convert userId -> DocumentReference
+    for (final entry in e.splitDetail.entries) {
+      final userId = entry.key;
+      final value = entry.value;
+
+      final member = _members.firstWhere(
+        (m) => m.uid == userId,
+        orElse: () => throw Exception("Member $userId not found"),
+      );
+
+      final userRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(member.uid);
+
+      _splitDetail[userRef] = value;
+    }
 
     _selectedCategory = fundCategories.firstWhere(
       (c) => c.id == e.iconId,
@@ -108,7 +126,7 @@ class _CreateOrEditExpenseScreenState extends State<CreateOrEditExpenseScreen> {
       return;
     }
 
-    Map<DocumentReference, int> result = {};
+    Map<String, int> result = {};
 
     /// ===== CHIA ĐỀU =====
     if (_splitType == 'equal') {
@@ -116,10 +134,11 @@ class _CreateOrEditExpenseScreenState extends State<CreateOrEditExpenseScreen> {
       int used = 0;
 
       for (int i = 0; i < _members.length; i++) {
-        final ref = _userRef(_members[i].uid);
+        final uid = _members[i].uid;
         final value = (i == _members.length - 1) ? amount - used : per;
+
         used += value;
-        result[ref] = value;
+        result[uid] = value;
       }
     }
     /// ===== CHIA THEO % =====
@@ -132,7 +151,7 @@ class _CreateOrEditExpenseScreenState extends State<CreateOrEditExpenseScreen> {
       }
 
       for (final e in _splitDetail.entries) {
-        result[e.key] = (amount * e.value / 100).round();
+        result[e.key.id] = (amount * e.value / 100).round();
       }
     }
 

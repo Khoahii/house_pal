@@ -19,7 +19,6 @@ class MainFundScreen extends StatefulWidget {
 
 class _MainFundScreenState extends State<MainFundScreen> {
   final FundService _fundService = FundService();
-  final AuthService _authService = AuthService();
   final String currentUserId = FirebaseAuth.instance.currentUser!.uid;
 
   final NumberFormat currencyFormat = NumberFormat.currency(
