@@ -5,6 +5,7 @@ import 'package:house_pal/Screens/Client/Funds/create_or_edit_Expense.dart';
 import 'package:house_pal/models/app_user.dart';
 import 'package:house_pal/models/expense.dart';
 import 'package:house_pal/models/fund.dart';
+import 'package:house_pal/services/expense_service.dart'; // 💡 Thêm Service
 import 'package:intl/intl.dart';
 
 class FundDetailScreen extends StatefulWidget {
@@ -17,51 +18,25 @@ class FundDetailScreen extends StatefulWidget {
 }
 
 class _FundDetailScreenState extends State<FundDetailScreen> {
+  final ExpenseService _expenseService = ExpenseService();
+
+  late Stream<Fund> _fundStream;
+  late Stream<List<Expense>> _expensesStream;
+
   final NumberFormat currencyFormat = NumberFormat.currency(
     locale: 'vi_VN',
     symbol: 'đ',
     decimalDigits: 0,
   );
 
-  // MOCK DATA - Các chi tiêu gần đây (subcollection expenses)
-  final List<Expense> mockExpenses = [
-    Expense(
-      id: 'exp1',
-      title: 'Vé máy bay khứ hồi',
-      amount: 4500000,
-      paidBy: FirebaseFirestore.instance.collection('users').doc('1'),
-      date: DateTime.now().subtract(const Duration(days: 2)),
-      iconId: 'flight',
-      iconEmoji: '✈️',
-      splitType: 'equal',
-      splitDetail: {},
-      createdAt: DateTime.now().subtract(const Duration(days: 2, hours: 3)),
-    ),
-    Expense(
-      id: 'exp2',
-      title: 'Khách sạn 3 đêm',
-      amount: 2800000,
-      paidBy: FirebaseFirestore.instance.collection('users').doc('2'),
-      date: DateTime.now().subtract(const Duration(days: 1)),
-      iconId: 'hotel',
-      iconEmoji: '🏨',
-      splitType: 'custom',
-      splitDetail: {},
-      createdAt: DateTime.now().subtract(const Duration(days: 1, hours: 5)),
-    ),
-    Expense(
-      id: 'exp3',
-      title: 'Ăn tối nhà hàng',
-      amount: 750000,
-      paidBy: FirebaseFirestore.instance.collection('users').doc('3'),
-      date: DateTime.now(),
-      iconId: 'food',
-      iconEmoji: '🍜',
-      splitType: 'equal',
-      splitDetail: {},
-      createdAt: DateTime.now().subtract(const Duration(hours: 2)),
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    // Lắng nghe thay đổi của tài liệu Fund (để cập nhật totalSpent)
+    _fundStream = _expenseService.getFundStream(widget.fund.id);
+    // Lắng nghe danh sách Expenses trong subcollection
+    _expensesStream = _expenseService.getFundExpenses(widget.fund.id);
+  }
 
   String _formatTimeAgo(DateTime date) {
     final diff = DateTime.now().difference(date);
@@ -86,8 +61,8 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final totalBudget = 10000000;
-    final remaining = totalBudget - widget.fund.totalSpent;
+    // Giữ cứng Budget, có thể lấy từ Fund nếu bạn lưu trong đó
+    const totalBudget = 10000000;
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -126,7 +101,8 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '5 thành viên • Tạo bởi Minh Tuấn',
+                  // Cần sửa nếu bạn có logic lấy tên người tạo
+                  '${widget.fund.members.length} thành viên • Tạo bởi (Tên người tạo)',
                   style: TextStyle(color: Colors.grey[600], fontSize: 14),
                 ),
               ],
@@ -134,77 +110,86 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
 
             const SizedBox(height: 28),
 
-            // Card số tiền đã chi + còn lại
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF8B5CFE), Color(0xFF6A1B9A)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 15,
-                    offset: const Offset(0, 8),
+            // Card số tiền đã chi + còn lại (Dùng StreamBuilder)
+            StreamBuilder<Fund>(
+              stream: _fundStream,
+              initialData: widget.fund,
+              builder: (context, snapshot) {
+                final currentFund = snapshot.data ?? widget.fund;
+                final totalSpent = currentFund.totalSpent;
+                final remaining = totalBudget - totalSpent;
+
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF8B5CFE), Color(0xFF6A1B9A)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 15,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 8),
-                  Text(
-                    'Tổng chi tiêu',
-                    style: TextStyle(color: Colors.white70, fontSize: 15),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Tổng chi tiêu',
+                        style: TextStyle(color: Colors.white70, fontSize: 15),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Text(
+                              currencyFormat.format(totalSpent),
+                              style: const TextStyle(
+                                fontSize: 25,
+                                fontWeight: FontWeight.bold,
+                                color: Color.fromARGB(255, 255, 255, 255),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      //- công nợ
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Text(
-                          currencyFormat.format(remaining),
-                          style: const TextStyle(
-                            fontSize: 25,
-                            fontWeight: FontWeight.bold,
-                            color: Color.fromARGB(255, 255, 255, 255),
+                        width: double.infinity,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: TextButton.icon(
+                          onPressed: () {},
+                          label: const Text(
+                            'Công nợ',
+                            style: TextStyle(fontSize: 18),
+                          ),
+                          icon: const Icon(Icons.monetization_on),
+                          style: TextButton.styleFrom(
+                            backgroundColor: const Color.fromARGB(
+                              255,
+                              255,
+                              255,
+                              255,
+                            ),
                           ),
                         ),
                       ),
                     ],
                   ),
-
-                  const SizedBox(height: 20),
-                  //- công nợ
-                  Container(
-                    width: double.infinity,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: TextButton.icon(
-                      onPressed: () {},
-                      label: const Text(
-                        'Công nợ',
-                        style: TextStyle(fontSize: 18),
-                      ),
-                      icon: const Icon(Icons.monetization_on),
-                      style: TextButton.styleFrom(
-                        backgroundColor: const Color.fromARGB(
-                          255,
-                          255,
-                          255,
-                          255,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                );
+              },
             ),
 
             const SizedBox(height: 32),
@@ -230,7 +215,8 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       );
                     final members = snapshot.data!;
-                    return AvatarStack(members: members);
+                    // Sử dụng hàm build avatarstack có sẵn
+                    return AvatarStack(members:members);
                   },
                 ),
               ],
@@ -251,64 +237,92 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
 
             const SizedBox(height: 12),
 
-            // Danh sách chi tiêu
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: mockExpenses.length,
-              separatorBuilder: (_, __) => const Divider(height: 24),
-              itemBuilder: (context, index) {
-                final exp = mockExpenses[index];
-                // final payer = mockMembers.firstWhere(
-                //   (m) => m.uid == exp.paidBy.id,
-                //   orElse: () => mockMembers[0],
-                // );
+            // Danh sách chi tiêu (Dùng StreamBuilder)
+            StreamBuilder<List<Expense>>(
+              stream: _expensesStream,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-                return Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.green[50],
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        exp.iconEmoji,
-                        style: const TextStyle(fontSize: 28),
-                      ),
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Text('Lỗi tải chi tiêu: ${snapshot.error}'),
+                  );
+                }
+
+                final expenses = snapshot.data;
+
+                if (expenses == null || expenses.isEmpty) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(30.0),
+                      child: Text('Chưa có chi tiêu nào trong quỹ này.'),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                  );
+                }
+
+                return ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: expenses.length,
+                  separatorBuilder: (_, __) => const Divider(height: 24),
+                  itemBuilder: (context, index) {
+                    final exp = expenses[index];
+
+                    return GestureDetector(
+                      onTap: () {
+                        // Thêm logic chỉnh sửa chi tiêu tại đây nếu cần
+                      },
+                      child: Row(
                         children: [
-                          Text(
-                            exp.title,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 16,
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.green[50],
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              exp.iconEmoji,
+                              style: const TextStyle(fontSize: 28),
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  exp.title,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  // Hiển thị thời gian
+                                  '${_formatDateTime(exp.createdAt)} ',
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                           Text(
-                            '${_formatDateTime(exp.createdAt)} ',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 13,
+                            '-${currencyFormat.format(exp.amount)}',
+                            style: const TextStyle(
+                              color: Colors.red,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
                             ),
                           ),
                         ],
                       ),
-                    ),
-                    Text(
-                      '-${currencyFormat.format(exp.amount)}',
-                      style: const TextStyle(
-                        color: Colors.red,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
+                    );
+                  },
                 );
               },
             ),
@@ -354,56 +368,6 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildAvatarStack(List<AppUser> members) {
-    final display = members.take(4).toList();
-    final extra = members.length - 4;
-
-    return SizedBox(
-      height: 50,
-      child: Stack(
-        children: [
-          ...display.asMap().entries.map((e) {
-            final index = e.key;
-            final user = e.value;
-            final name = user.name.isNotEmpty
-                ? user.name.trim().split(' ').last
-                : 'U';
-            return Positioned(
-              left: index * 32.0,
-              child: CircleAvatar(
-                radius: 22,
-                backgroundColor:
-                    Colors.primaries[index % Colors.primaries.length],
-                child: Text(
-                  name[0].toUpperCase(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            );
-          }),
-          if (extra > 0)
-            Positioned(
-              left: 4 * 32.0,
-              child: CircleAvatar(
-                radius: 22,
-                backgroundColor: Colors.grey[800],
-                child: Text(
-                  '+$extra',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-        ],
       ),
     );
   }
