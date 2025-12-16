@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:house_pal/Screens/Commom/Profile/role_management_screen.dart';
 
 
+
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -154,18 +155,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _menuCard(icon: Icons.group, title: "Thành viên trong nhà"),
                   _menuCard(icon: Icons.calendar_month, title: "Lịch việc nhà"),
                   _menuCard(icon: Icons.attach_money, title: "Quỹ chung"),
-                  _menuCard(
-                  icon: Icons.admin_panel_settings,
-                  title: "Phân quyền thành viên",
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const RoleManagementScreen(),
-                      ),
-                    );
-                  },
-                ),
+                 _menuCard(
+                icon: Icons.admin_panel_settings,
+                title: "Phân quyền thành viên",
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const RoleManagementScreen(),
+                    ),
+                  );
+                },
+              ),
+
+
+
+
 
 
                   const SizedBox(height: 16),
@@ -215,39 +220,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // MENU ITEM
-    Widget _menuCard({
-      required IconData icon,
-      required String title,
-      VoidCallback? onTap,
-    }) {
-
-   return GestureDetector(
-  onTap: onTap,
-  child: Container(
-    margin: const EdgeInsets.only(bottom: 12),
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-    ),
-    child: Row(
-      children: [
-        Icon(icon, color: Colors.deepPurple),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Text(
-            title,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
+  Widget _menuCard({
+  required IconData icon,
+  required String title,
+  VoidCallback? onTap,
+}) {
+  return GestureDetector(
+    onTap: onTap,
+    child: Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.deepPurple),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
-        ),
-        const Icon(Icons.chevron_right, color: Colors.grey),
-      ],
+          const Icon(Icons.chevron_right, color: Colors.grey),
+        ],
+      ),
     ),
-  ),
-);
+  );
+}
+
 
   }
 
@@ -277,4 +283,4 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
-}
+

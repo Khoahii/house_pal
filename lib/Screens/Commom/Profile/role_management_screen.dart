@@ -1,86 +1,76 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../providers/auth_provider.dart';
+import '../../../models/app_user.dart';
+import '../../../services/role_management_service.dart';
 
-class RoleManagementScreen extends StatefulWidget {
+class RoleManagementScreen extends StatelessWidget {
   const RoleManagementScreen({super.key});
 
   @override
-  State<RoleManagementScreen> createState() => _RoleManagementScreenState();
-}
-
-class _RoleManagementScreenState extends State<RoleManagementScreen> {
-  // Mock danh sách thành viên (sau này lấy từ Firestore)
-  final List<Map<String, String>> members = [
-    {"name": "Nguyễn Minh An", "role": "admin"},
-    {"name": "Anh Nguyễn", "role": "room_leader"},
-    {"name": "Chi", "role": "member"},
-    {"name": "Bình", "role": "member"},
-  ];
-
-  final Map<String, String> roleLabel = {
-    "admin": "Admin",
-    "room_leader": "Room Leader",
-    "member": "Member",
-  };
-
-  @override
   Widget build(BuildContext context) {
+    final auth = Provider.of<MyAuthProvider>(context);
+    final AppUser user = auth.currentUser!;
+
+    final service = RoleManagementService();
+
+    Stream<List<AppUser>> stream;
+
+    if (user.role == 'admin') {
+      stream = service.getAllUsers();
+    } else if (user.role == 'room_leader' && user.roomId != null) {
+      stream = service.getUsersInRoom(user.roomId!);
+    } else {
+      return const Center(child: Text('Không có quyền'));
+    }
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F7FB),
-      appBar: AppBar(
-        title: const Text("Phân quyền thành viên"),
-        centerTitle: true,
-      ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: members.length,
-        itemBuilder: (context, index) {
-          final member = members[index];
+      appBar: AppBar(title: const Text('Phân quyền thành viên')),
+      body: StreamBuilder<List<AppUser>>(
+        stream: stream,
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.person_outline,
-                    color: Colors.deepPurple),
-                const SizedBox(width: 12),
+          final users = snapshot.data!;
 
-                Expanded(
-                  child: Text(
-                    member["name"]!,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
+          if (users.isEmpty) {
+            return const Center(child: Text('Không có thành viên'));
+          }
 
-                DropdownButton<String>(
-                  value: member["role"],
-                  underline: const SizedBox(),
-                  items: roleLabel.entries
-                      .map(
-                        (e) => DropdownMenuItem(
-                          value: e.key,
-                          child: Text(e.value),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      members[index]["role"] = value!;
-                    });
-                  },
-                ),
-              ],
-            ),
+          return ListView.builder(
+            itemCount: users.length,
+            itemBuilder: (context, index) {
+              final u = users[index];
+              return ListTile(
+                leading: const Icon(Icons.person),
+                title: Text(u.name),
+                subtitle: Text(u.role),
+                trailing: _roleDropdown(user, u),
+              );
+            },
           );
         },
       ),
+    );
+  }
+
+  /// Dropdown chỉ cho admin & room_leader
+  Widget _roleDropdown(AppUser currentUser, AppUser targetUser) {
+    if (currentUser.role == 'room_leader' &&
+        targetUser.role == 'admin') {
+      return const SizedBox(); // không cho thấy admin
+    }
+
+    return DropdownButton<String>(
+      value: targetUser.role,
+      items: const [
+        DropdownMenuItem(value: 'member', child: Text('Member')),
+        DropdownMenuItem(value: 'room_leader', child: Text('Room Leader')),
+        DropdownMenuItem(value: 'admin', child: Text('Admin')),
+      ],
+      onChanged: (_) {},
     );
   }
 }
