@@ -1,12 +1,61 @@
 import 'package:flutter/material.dart';
+import 'package:house_pal/providers/auth_provider.dart';
+import 'package:provider/provider.dart';
 
-class TaskDetailScreen extends StatelessWidget {
+class TaskDetailScreen extends StatefulWidget {
   const TaskDetailScreen({super.key});
 
+  @override
+  State<TaskDetailScreen> createState() => _TaskDetailScreenState();
+}
+
+class _TaskDetailScreenState extends State<TaskDetailScreen> {
   final Color primaryColor = const Color(0xFF4F46E5);
+
+  // Future<void> _showDeleteConfirm() async {
+  //   return showDialog<void>(
+   Future<bool?> _showDeleteConfirm() async {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false, // user must tap button!
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Xác nhận xóa'),
+          content: const SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                Text('Bạn có chắc chắn muốn xóa công việc này không?'),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Hủy'),
+              onPressed: () {
+                // Navigator.of(context).pop();
+                Navigator.of(context).pop(false);
+              },
+            ),
+            TextButton(
+              child: const Text('Xóa'),
+              onPressed: () {
+                // Perform delete operation here
+                // Navigator.of(context).pop(); // Close dialog
+                // Navigator.of(context).pop(); // Go back to previous screen
+                Navigator.of(context).pop(true);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<MyAuthProvider>(context, listen: false);
+    final currentUser = authProvider.currentUser;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF6F7FB),
       appBar: AppBar(
@@ -20,11 +69,20 @@ class TaskDetailScreen extends StatelessWidget {
           'Lau nhà toàn bộ',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
-        actions: const [
-          Padding(
-            padding: EdgeInsets.only(right: 12),
-            child: Icon(Icons.more_vert, color: Colors.white),
-          ),
+        actions: [
+          if (currentUser != null && currentUser.canCreateTask)
+            IconButton(
+              icon: const Icon(Icons.more_vert, color: Colors.white),
+              // onPressed: () {
+              //   _showDeleteConfirm();
+              // },
+              onPressed: () async {
+                final shouldDelete = await _showDeleteConfirm();
+                if (shouldDelete == true && mounted) {
+                  Navigator.of(context).pop(); // Go back to the previous screen
+                }
+              },
+            )
         ],
       ),
       body: Column(
