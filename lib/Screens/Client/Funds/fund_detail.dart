@@ -5,7 +5,8 @@ import 'package:house_pal/Screens/Client/Funds/create_or_edit_Expense.dart';
 import 'package:house_pal/models/app_user.dart';
 import 'package:house_pal/models/expense.dart';
 import 'package:house_pal/models/fund.dart';
-import 'package:house_pal/services/expense_service.dart'; // 💡 Thêm Service
+import 'package:house_pal/services/expense_service.dart';
+import 'package:house_pal/services/user_service.dart';
 import 'package:intl/intl.dart';
 
 class FundDetailScreen extends StatefulWidget {
@@ -19,6 +20,7 @@ class FundDetailScreen extends StatefulWidget {
 
 class _FundDetailScreenState extends State<FundDetailScreen> {
   final ExpenseService _expenseService = ExpenseService();
+  final UserService _userService = UserService();
 
   late Stream<Fund> _fundStream;
   late Stream<List<Expense>> _expensesStream;
@@ -38,14 +40,6 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
     _expensesStream = _expenseService.getFundExpenses(widget.fund.id);
   }
 
-  String _formatTimeAgo(DateTime date) {
-    final diff = DateTime.now().difference(date);
-    if (diff.inDays >= 1) return '${diff.inDays} ngày trước';
-    if (diff.inHours >= 1) return '${diff.inHours} giờ trước';
-    if (diff.inMinutes >= 1) return '${diff.inMinutes} phút trước';
-    return 'Vừa xong';
-  }
-
   String _formatDateTime(DateTime date) {
     final today = DateTime.now();
     final isToday =
@@ -61,8 +55,7 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Giữ cứng Budget, có thể lấy từ Fund nếu bạn lưu trong đó
-    const totalBudget = 10000000;
+    final String userId = widget.fund.creatorId.id;
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -100,10 +93,28 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
                   ),
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  // Cần sửa nếu bạn có logic lấy tên người tạo
-                  '${widget.fund.members.length} thành viên • Tạo bởi (Tên người tạo)',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                FutureBuilder<AppUser?>(
+                  future: _userService.getUserById(userId),
+                  builder: (context, snapshot) {
+                    // Tên mặc định/placeholder
+                    String creatorName = '...';
+
+                    if (snapshot.connectionState == ConnectionState.done) {
+                      if (snapshot.hasError) {
+                        creatorName = 'Lỗi';
+                      } else if (snapshot.data != null) {
+                        // Giả sử AppUser có thuộc tính 'name'
+                        creatorName = snapshot.data!.name;
+                      } else {
+                        creatorName = 'Không rõ';
+                      }
+                    }
+
+                    return Text(
+                      '${widget.fund.members.length} thành viên • Tạo bởi $creatorName',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                    );
+                  },
                 ),
               ],
             ),
@@ -117,7 +128,6 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
               builder: (context, snapshot) {
                 final currentFund = snapshot.data ?? widget.fund;
                 final totalSpent = currentFund.totalSpent;
-                final remaining = totalBudget - totalSpent;
 
                 return Container(
                   width: double.infinity,
@@ -216,7 +226,7 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
                       );
                     final members = snapshot.data!;
                     // Sử dụng hàm build avatarstack có sẵn
-                    return AvatarStack(members:members);
+                    return AvatarStack(members: members);
                   },
                 ),
               ],
@@ -238,13 +248,16 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
             const SizedBox(height: 12),
 
             // Danh sách chi tiêu (Dùng StreamBuilder)
+            // Danh sách chi tiêu (Dùng StreamBuilder)
             StreamBuilder<List<Expense>>(
               stream: _expensesStream,
               builder: (context, snapshot) {
+                // Xử lý trạng thái đang tải
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
+                // Xử lý trạng thái lỗi
                 if (snapshot.hasError) {
                   return Center(
                     child: Text('Lỗi tải chi tiêu: ${snapshot.error}'),
@@ -253,6 +266,7 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
 
                 final expenses = snapshot.data;
 
+                // Xử lý trạng thái rỗng
                 if (expenses == null || expenses.isEmpty) {
                   return const Center(
                     child: Padding(
@@ -262,6 +276,7 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
                   );
                 }
 
+                // Hiển thị danh sách chi tiêu
                 return ListView.separated(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -269,59 +284,91 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
                   separatorBuilder: (_, __) => const Divider(height: 24),
                   itemBuilder: (context, index) {
                     final exp = expenses[index];
+                    // Lấy ID người dùng (Nếu cần, bạn có thể phải tách ID từ path tại đây)
+                    final String userId = exp.paidBy.id;
 
-                    return GestureDetector(
-                      onTap: () {
-                        // Thêm logic chỉnh sửa chi tiêu tại đây nếu cần
-                      },
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: Colors.green[50],
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              exp.iconEmoji,
-                              style: const TextStyle(fontSize: 28),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  exp.title,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 16,
-                                  ),
+                    // Bọc widget hiển thị trong FutureBuilder để lấy tên người dùng
+                    return FutureBuilder<AppUser?>(
+                      // Gọi hàm bất đồng bộ để lấy thông tin người dùng
+                      future: _userService.getUserById(userId),
+                      builder: (context, userSnapshot) {
+                        String paidByName;
+
+                        // Xử lý các trạng thái của Future<AppUser?>
+                        if (userSnapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          paidByName =
+                              'Đang tải...'; // Tên placeholder khi đang tải
+                        } else if (userSnapshot.hasError) {
+                          paidByName = 'Lỗi tên'; // Xử lý lỗi
+                        } else if (userSnapshot.data != null) {
+                          // Lấy tên người dùng nếu có dữ liệu
+                          paidByName = userSnapshot.data!.name;
+                        } else {
+                          paidByName = 'Người dùng không tồn tại';
+                        }
+
+                        // Widget chi tiêu
+                        return GestureDetector(
+                          onTap: () {
+                            // Thêm logic chỉnh sửa chi tiêu tại đây nếu cần
+                          },
+                          child: Row(
+                            children: [
+                              // Icon chi tiêu
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.green[50],
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  // Hiển thị thời gian
-                                  '${_formatDateTime(exp.createdAt)} ',
-                                  style: TextStyle(
-                                    color: Colors.grey[600],
-                                    fontSize: 13,
-                                  ),
+                                child: Text(
+                                  exp.iconEmoji,
+                                  style: const TextStyle(fontSize: 28),
                                 ),
-                              ],
-                            ),
+                              ),
+                              const SizedBox(width: 16),
+
+                              // Tên chi tiêu và thông tin người trả
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      // SỬ DỤNG TÊN ĐÃ TẢI XONG
+                                      exp.title,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      // Hiển thị thời gian
+                                      '${paidByName} trả ${_formatDateTime(exp.createdAt)}',
+                                      style: TextStyle(
+                                        color: Colors.grey[600],
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              // Số tiền chi tiêu
+                              Text(
+                                '-${currencyFormat.format(exp.amount)}',
+                                style: const TextStyle(
+                                  color: Colors.red,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
                           ),
-                          Text(
-                            '-${currencyFormat.format(exp.amount)}',
-                            style: const TextStyle(
-                              color: Colors.red,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
+                        );
+                      }, // Kết thúc FutureBuilder builder
+                    ); // Kết thúc FutureBuilder
                   },
                 );
               },
