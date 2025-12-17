@@ -3,7 +3,6 @@ import 'create_task_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:house_pal/models/app_user.dart';
-import 'package:house_pal/Screens/Client/Task/auto_rotate_screen.dart';
 import 'package:house_pal/Screens/Client/Task/ranking_screen.dart';
 import 'package:house_pal/Screens/Client/Task/task_detail_screen.dart ';
 
@@ -216,32 +215,13 @@ class _MainTaskState extends State<MainTask> {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            //Nút nagivator đến auto rotate screen
-                            Material(
-                              color: const Color(0xFF4F46E5),
-                              shape: const CircleBorder(),
-                              child: InkWell(
-                                customBorder: const CircleBorder(),
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          const AutoRotateScreen(),
-                                    ),
-                                  );
-                                },
-                                child: const SizedBox(
-                                  width: 40,
-                                  height: 40,
-                                  child: Center(
-                                    child: Icon(
-                                      Icons.sync,
-                                      color: Colors.white,
-                                      size: 20,
-                                    ),
-                                  ),
-                                ),
+                            IconButton(
+                              onPressed: () {
+                                // Chức năng lọc có thể được thêm sau
+                              },
+                              icon: const Icon(
+                                Icons.filter_list,
+                                color: Color(0xFF6B7280),
                               ),
                             ),
                           ],
