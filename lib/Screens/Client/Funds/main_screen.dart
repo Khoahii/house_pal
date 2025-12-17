@@ -90,9 +90,10 @@ class _MainFundScreenState extends State<MainFundScreen> {
 
               final funds = fundSnapshot.data!;
               // 1. TÍNH TOÁN TỔNG CHI TIÊU TOÀN BỘ QUỸ
-              final totalSpen = funds
-                  .map((f) => f.totalSpent)
-                  .reduce((a, b) => a + b);
+              final totalSpen = funds.isEmpty
+                  ? 0
+                  : funds.map((f) => f.totalSpent).reduce((a, b) => a + b);
+
 
               return SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
