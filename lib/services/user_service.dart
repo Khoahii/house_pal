@@ -56,4 +56,20 @@ class UserService {
       throw Exception('Lỗi lấy dữ liệu người dùng: $e');
     }
   }
+
+  //- get user by id
+  Future<AppUser?> getUserById(String userId) async {
+    try {
+      final DocumentSnapshot doc = await _firestore
+          .collection(_usersCollection)
+          .doc(userId)
+          .get();
+      if (doc.exists) {
+        return AppUser.fromFirestore(doc);
+      }
+      return null;
+    } catch (e) {
+      throw Exception('Lỗi lấy dữ liệu người dùng: $e');
+    }
+  }
 }

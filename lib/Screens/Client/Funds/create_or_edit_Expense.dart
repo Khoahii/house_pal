@@ -36,6 +36,8 @@ class _CreateOrEditExpenseScreenState extends State<CreateOrEditExpenseScreen> {
   List<AppUser> _members = [];
   bool _loadingMembers = true;
 
+  final Map<DocumentReference, TextEditingController> _splitCtrls = {};
+
   DocumentReference? _paidBy;
   DateTime _date = DateTime.now();
 
@@ -54,9 +56,9 @@ class _CreateOrEditExpenseScreenState extends State<CreateOrEditExpenseScreen> {
   void initState() {
     super.initState();
     _loadMembers();
-    _initEditData();
   }
 
+  /// ================= INIT EDIT =================
   void _initEditData() {
     final e = widget.expense;
     if (e == null) return;
@@ -68,11 +70,11 @@ class _CreateOrEditExpenseScreenState extends State<CreateOrEditExpenseScreen> {
     _splitType = e.splitType;
 
     _splitDetail.clear();
+    _customSelected.clear();
 
-    // 🔥 Convert userId -> DocumentReference
     for (final entry in e.splitDetail.entries) {
       final userId = entry.key;
-      final value = entry.value;
+      final vnd = entry.value;
 
       final member = _members.firstWhere(
         (m) => m.uid == userId,
@@ -83,7 +85,14 @@ class _CreateOrEditExpenseScreenState extends State<CreateOrEditExpenseScreen> {
           .collection('users')
           .doc(member.uid);
 
-      _splitDetail[userRef] = value;
+      // 🔥 VND → %
+      final percent = ((vnd / e.amount) * 100).round();
+
+      _splitDetail[userRef] = percent;
+
+      if (_splitType == 'custom') {
+        _customSelected.add(userRef);
+      }
     }
 
     _selectedCategory = fundCategories.firstWhere(
@@ -92,6 +101,7 @@ class _CreateOrEditExpenseScreenState extends State<CreateOrEditExpenseScreen> {
     );
   }
 
+  /// ================= LOAD MEMBERS =================
   Future<void> _loadMembers() async {
     final snaps = await Future.wait(widget.memberRefs.map((e) => e.get()));
     final users = snaps.map(AppUser.fromFirestore).toList();
@@ -102,7 +112,14 @@ class _CreateOrEditExpenseScreenState extends State<CreateOrEditExpenseScreen> {
           .collection('users')
           .doc(FirebaseAuth.instance.currentUser!.uid);
       _loadingMembers = false;
+
+      for (final u in users) {
+        final ref = _userRef(u.uid);
+        _splitCtrls[ref] = TextEditingController();
+      }
     });
+
+    _initEditData();
   }
 
   DocumentReference _userRef(String uid) =>
@@ -112,6 +129,7 @@ class _CreateOrEditExpenseScreenState extends State<CreateOrEditExpenseScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
+  /// ================= SUBMIT =================
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate() ||
         _paidBy == null ||
@@ -141,15 +159,20 @@ class _CreateOrEditExpenseScreenState extends State<CreateOrEditExpenseScreen> {
         result[uid] = value;
       }
     }
-    /// ===== CHIA THEO % =====
-    else {
+    /// ===== CHIA THEO % (BẮT BUỘC 100) =====
+    else if (_splitType == 'percentage') {
       final total = _splitDetail.values.fold<int>(0, (a, b) => a + b);
-
       if (total != 100) {
         _showError("Tổng phần trăm phải bằng 100%");
         return;
       }
 
+      for (final e in _splitDetail.entries) {
+        result[e.key.id] = (amount * e.value / 100).round();
+      }
+    }
+    /// ===== CUSTOM (KHÔNG BẮT BUỘC 100) =====
+    else {
       for (final e in _splitDetail.entries) {
         result[e.key.id] = (amount * e.value / 100).round();
       }
@@ -161,7 +184,7 @@ class _CreateOrEditExpenseScreenState extends State<CreateOrEditExpenseScreen> {
       if (widget.isEdit) {
         await _expenseService.updateExpense(
           fundId: widget.fundId,
-          expenseId: widget.expense!.id,
+          expense: widget.expense!, // 🔥 FIX
           title: _titleCtrl.text.trim(),
           amount: amount,
           paidBy: _paidBy!,
@@ -191,6 +214,7 @@ class _CreateOrEditExpenseScreenState extends State<CreateOrEditExpenseScreen> {
     }
   }
 
+  /// ================= BUILD =================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -324,7 +348,6 @@ class _CreateOrEditExpenseScreenState extends State<CreateOrEditExpenseScreen> {
 
   Widget _splitChip(String value, String label, IconData icon) {
     return ChoiceChip(
-      // avatar: Icon(icon, size: 18),
       label: Text(label),
       selected: _splitType == value,
       onSelected: (_) {
@@ -346,6 +369,12 @@ class _CreateOrEditExpenseScreenState extends State<CreateOrEditExpenseScreen> {
           final enabled =
               _splitType == 'percentage' || _customSelected.contains(ref);
 
+          final controller = TextEditingController(
+            text: _splitDetail.containsKey(ref)
+                ? _splitDetail[ref].toString()
+                : '',
+          );
+
           return ListTile(
             leading: _splitType == 'custom'
                 ? Checkbox(
@@ -366,6 +395,7 @@ class _CreateOrEditExpenseScreenState extends State<CreateOrEditExpenseScreen> {
             trailing: SizedBox(
               width: 80,
               child: TextFormField(
+                controller: controller,
                 enabled: enabled,
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
@@ -382,6 +412,7 @@ class _CreateOrEditExpenseScreenState extends State<CreateOrEditExpenseScreen> {
       ),
     );
   }
+
 
   Widget _buildCategory() {
     return Column(
@@ -441,6 +472,9 @@ class _CreateOrEditExpenseScreenState extends State<CreateOrEditExpenseScreen> {
   void dispose() {
     _titleCtrl.dispose();
     _amountCtrl.dispose();
+    for (final c in _splitCtrls.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 }

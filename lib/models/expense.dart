@@ -10,6 +10,7 @@ class Expense {
   final String iconEmoji;
   final String splitType;
   final Map<String, int> splitDetail; // 🔥 userId -> amount
+  final String createdBy; // 🔥 NEW
   final DateTime createdAt;
 
   Expense({
@@ -22,6 +23,7 @@ class Expense {
     required this.iconEmoji,
     required this.splitType,
     required this.splitDetail,
+    required this.createdBy,
     required this.createdAt,
   });
 
@@ -38,8 +40,8 @@ class Expense {
       iconEmoji: data['iconEmoji'],
       splitType: data['splitType'],
       splitDetail: Map<String, int>.from(data['splitDetail'] ?? {}),
+      createdBy: data['createdBy'] ?? '',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
 }
-

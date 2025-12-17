@@ -72,7 +72,7 @@ class _CreateOrEditFundBottomSheetState extends State<CreateOrEditFundBottomShee
       for (final s in memberSnapshots) s.id: s,
     };
 
-    // Chuyển thành AppUser và lọc bỏ admin (an toàn nếu role không có)
+    // Chuyển thành AppUser và lọc bỏ admin
     final members = memberSnapshots
         .map((snap) => AppUser.fromFirestore(snap))
         .where((u) => (u.role) != 'admin')
