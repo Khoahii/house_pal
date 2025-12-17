@@ -45,8 +45,6 @@ class AutoRotateScreen extends StatelessWidget {
             _rotationSection(),
             const SizedBox(height: 16),
             _scheduleSection(),
-            const SizedBox(height: 24),
-            _viewAllButton(),
           ],
         ),
       ),
@@ -192,19 +190,7 @@ class AutoRotateScreen extends StatelessWidget {
     );
   }
 
-  // ================= Nút xem toàn bộ =================
-  Widget _viewAllButton() {
-    return OutlinedButton.icon(
-      onPressed: () {},
-      icon: const Icon(Icons.history),
-      label: const Text('Xem Lịch Sử Phân Công'),
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
-  }
-
+ 
   BoxDecoration _cardDecoration() {
     return BoxDecoration(
       color: Colors.white,
