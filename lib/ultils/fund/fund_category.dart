@@ -13,7 +13,6 @@ class FundCategory {
 }
 
 // lib/utils/fund_category.dart
-
 const List<FundCategory> fundCategories = [
   FundCategory(id: "travel", name: "Đi chơi", icon: "✈️"),
   FundCategory(id: "food", name: "Ăn uống", icon: "🍜"),

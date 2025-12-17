@@ -5,7 +5,6 @@ import 'package:house_pal/Screens/Client/Funds/components/block_avatar.dart';
 import 'package:house_pal/Screens/Client/Funds/fund_detail.dart';
 import 'package:house_pal/models/app_user.dart';
 import 'package:house_pal/models/fund.dart';
-import 'package:house_pal/services/auth_service.dart';
 import 'package:house_pal/services/fund_service.dart';
 import 'package:intl/intl.dart';
 import 'create_or_edit_fund_bottom_sheet.dart';
@@ -75,7 +74,7 @@ class _MainFundScreenState extends State<MainFundScreen> {
           if (!userSnapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
-          final currentUser = userSnapshot.data; // Lấy AppUser đã xác nhận
+          final currentUser = userSnapshot.data;
 
           // Tiếp tục xây dựng body chính bằng StreamBuilder của Funds
           return StreamBuilder<List<Fund>>(
@@ -90,31 +89,45 @@ class _MainFundScreenState extends State<MainFundScreen> {
               }
 
               final funds = fundSnapshot.data!;
+              // 1. TÍNH TOÁN TỔNG CHI TIÊU TOÀN BỘ QUỸ
+              final totalSpen = funds.isEmpty
+                  ? 0
+                  : funds.map((f) => f.totalSpent).reduce((a, b) => a + b);
+
 
               return SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // CARD TỔNG DƯ
+                    // CARD TỔNG DƯ (Tổng Chi Tiêu, Cần Thu, Cần Trả)
                     StreamBuilder<Map<String, int>>(
                       stream: _summaryStream,
                       builder: (context, summarySnapshot) {
-                        final data =
-                            summarySnapshot.data ??
-                            {
-                              'totalBalance': 0,
-                              'totalToCollect': 0,
-                              'ToPay': 0,
-                            };
-                        final totalBalance = data['totalBalance'] ?? 0;
-                        final toCollect = data['totalToCollect'] ?? 0;
-                        final toPay = data['ToPay'] ?? 0;
+                        int totalToCollect = 0;
+                        int totalToPay = 0;
 
+                        // Lấy dữ liệu Cần Thu và Cần Trả từ Stream
+                        if (summarySnapshot.hasData) {
+                          final data = summarySnapshot.data!;
+
+                          // Lấy Tổng Cần Thu (Tổng balance dương)
+                          totalToCollect = data['totalToCollect'] ?? 0;
+
+                          // Lấy Tổng Cần Trả (Tổng balance âm đã chuyển sang dương)
+                          totalToPay = data['totalToPay'] ?? 0;
+                        }
+
+                        // HIỂN THỊ CARD VỚI 3 GIÁ TRỊ:
                         return _buildSummaryCard(
-                          totalBalance,
-                          toCollect,
-                          toPay,
+                          // Tham số 1: Tổng Chi Tiêu Toàn Quỹ
+                          totalSpen,
+
+                          // Tham số 2: Tổng Cần Thu cá nhân (từ FundService đã tính)
+                          totalToCollect,
+
+                          // Tham số 3: Tổng Cần Trả cá nhân (từ FundService đã tính)
+                          totalToPay,
                         );
                       },
                     ),
@@ -143,6 +156,7 @@ class _MainFundScreenState extends State<MainFundScreen> {
 
                     const SizedBox(height: 16),
 
+                    // Danh sách Quỹ
                     funds.isEmpty
                         ? _buildEmptyState()
                         : ListView.separated(
@@ -153,8 +167,6 @@ class _MainFundScreenState extends State<MainFundScreen> {
                                 const SizedBox(height: 16),
                             itemBuilder: (context, index) {
                               final fund = funds[index];
-
-                              // TRUYỀN THẲNG currentUser VÀO _buildFundCard
                               return _buildFundCard(fund, currentUser);
                             },
                           ),
@@ -174,7 +186,7 @@ class _MainFundScreenState extends State<MainFundScreen> {
     );
   }
 
-  Widget _buildSummaryCard(int balance, int toCollect, int toPay) {
+  Widget _buildSummaryCard(int totalSpen, int toCollect, int toPay) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -196,12 +208,12 @@ class _MainFundScreenState extends State<MainFundScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            "Tổng số dư tất cả quỹ",
+            "Tổng tiền tất cả quỹ",
             style: TextStyle(color: Colors.white70, fontSize: 14),
           ),
           const SizedBox(height: 8),
           Text(
-            currencyFormat.format(balance),
+            currencyFormat.format(totalSpen),
             style: const TextStyle(
               color: Colors.white,
               fontSize: 32,

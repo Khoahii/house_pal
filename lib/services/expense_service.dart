@@ -1,10 +1,30 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:house_pal/models/app_user.dart';
 import 'package:house_pal/models/expense.dart';
 import 'package:house_pal/models/fund.dart';
+import 'package:house_pal/services/user_service.dart';
 
 class ExpenseService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final UserService _userService = UserService();
+
+  // =========================
+  // CHECK PERMISSION
+  // =========================
+  Future<bool> _canModifyExpense(Expense expense) async {
+    final uid = FirebaseAuth.instance.currentUser!.uid;
+
+    // Người tạo
+    if (expense.createdBy == uid) return true;
+
+    // Admin / room_leader
+    final AppUser? user = await _userService.getUserById(uid);
+    if (user == null) return false;
+
+    return user.role == 'admin' || user.role == 'room_leader';
+  }
 
   // =========================
   // CREATE EXPENSE
@@ -22,6 +42,7 @@ class ExpenseService {
   }) async {
     final fundRef = _firestore.collection('funds').doc(fundId);
     final expenseRef = fundRef.collection('expenses').doc();
+    final uid = FirebaseAuth.instance.currentUser!.uid;
 
     bool hasError = false;
     String? errorMessage;
@@ -32,15 +53,15 @@ class ExpenseService {
           final Map<String, DocumentSnapshot<Map<String, dynamic>>>
           memberSnaps = {};
 
+          // 🔹 READ ALL
           for (final userId in splitDetail.keys) {
             final ref = _firestore
                 .collection('fund_members')
                 .doc('${fundId}_$userId');
-
             memberSnaps[userId] = await transaction.get(ref);
           }
 
-          // 2.1 Create expense
+          // 🔹 CREATE EXPENSE
           transaction.set(expenseRef, {
             'title': title,
             'amount': amount,
@@ -50,16 +71,17 @@ class ExpenseService {
             'iconEmoji': iconEmoji,
             'splitType': splitType,
             'splitDetail': splitDetail,
+            'createdBy': uid,
             'createdAt': FieldValue.serverTimestamp(),
           });
 
-          // 2.2 Update fund
+          // 🔹 UPDATE FUND
           transaction.update(fundRef, {
             'totalSpent': FieldValue.increment(amount),
             'updatedAt': FieldValue.serverTimestamp(),
           });
 
-          // 2.3 Update fund members
+          // 🔹 UPDATE FUND MEMBERS
           for (final entry in splitDetail.entries) {
             final userId = entry.key;
             final owed = entry.value;
@@ -70,8 +92,8 @@ class ExpenseService {
 
             if (snap.exists) {
               final data = snap.data()!;
-              totalPaid = (data['totalPaid'] as num?)?.toInt() ?? 0;
-              totalOwed = (data['totalOwed'] as num?)?.toInt() ?? 0;
+              totalPaid = (data['totalPaid'] ?? 0);
+              totalOwed = (data['totalOwed'] ?? 0);
             }
 
             if (paidBy.id == userId) {
@@ -83,52 +105,37 @@ class ExpenseService {
                 .collection('fund_members')
                 .doc('${fundId}_$userId');
 
-            final payload = {
-              'fundId': fundId,
-              'userId': userId,
+            transaction.update(ref, {
               'totalPaid': totalPaid,
               'totalOwed': totalOwed,
               'balance': totalPaid - totalOwed,
               'lastUpdated': FieldValue.serverTimestamp(),
-            };
-
-            if (snap.exists) {
-              transaction.update(ref, payload);
-            } else {
-              transaction.set(ref, {
-                ...payload,
-                'createdAt': FieldValue.serverTimestamp(),
-              });
-            }
+            });
           }
         } catch (e, stack) {
           debugPrint('🔥 createExpense TRANSACTION ERROR: $e');
           debugPrint(stack.toString());
           hasError = true;
-          errorMessage = 'Lỗi xử lý transaction';
+          errorMessage = 'Lỗi xử lý tạo chi tiêu';
           return;
         }
       });
 
-      if (hasError) {
-        throw Exception(errorMessage);
-      }
-
+      if (hasError) throw Exception(errorMessage);
       return expenseRef.id;
     } catch (e, stack) {
       debugPrint('🔥 createExpense FAILED: $e');
       debugPrint(stack.toString());
-      throw Exception('Đã xảy ra lỗi khi tạo chi phí');
+      throw Exception('Không thể tạo chi tiêu');
     }
   }
-
 
   // =========================
   // UPDATE EXPENSE
   // =========================
   Future<void> updateExpense({
     required String fundId,
-    required String expenseId,
+    required Expense expense,
     required String title,
     required int amount,
     required DocumentReference paidBy,
@@ -138,127 +145,185 @@ class ExpenseService {
     required String splitType,
     required Map<String, int> splitDetail,
   }) async {
-    final fundRef = _firestore.collection('funds').doc(fundId);
-    final expenseRef = fundRef.collection('expenses').doc(expenseId);
+    if (!await _canModifyExpense(expense)) {
+      throw Exception('NO_PERMISSION');
+    }
 
-    bool hasError = false;
-    String? errorMessage;
+    final fundRef = _firestore.collection('funds').doc(fundId);
+    final expenseRef = fundRef.collection('expenses').doc(expense.id);
 
     try {
       await _firestore.runTransaction((transaction) async {
-        try {
-          final oldSnap = await transaction.get(expenseRef);
 
-          if (!oldSnap.exists) {
-            hasError = true;
-            errorMessage = 'Chi phí không tồn tại';
-            return;
+        /// gom toàn bộ userId liên quan (old + new)
+        final Set<String> affectedUserIds = {
+          ...expense.splitDetail.keys,
+          ...splitDetail.keys,
+        };
+
+        final Map<String, DocumentSnapshot> memberSnaps = {};
+
+        for (final userId in affectedUserIds) {
+          final ref = _firestore
+              .collection('fund_members')
+              .doc('${fundId}_$userId');
+
+          final snap = await transaction.get(ref);
+
+          if (!snap.exists) {
+            throw Exception('Fund member không tồn tại');
           }
 
-          final oldData = oldSnap.data()!;
-          final int oldAmount = oldData['amount'];
-          final DocumentReference oldPaidBy = oldData['paidBy'];
-          final Map<String, int> oldSplit = Map<String, int>.from(
-            oldData['splitDetail'] ?? {},
-          );
-
-          // Rollback công nợ cũ
-          for (final entry in oldSplit.entries) {
-            final userId = entry.key;
-            final owed = entry.value;
-
-            final fundMemberRef = _firestore
-                .collection('fund_members')
-                .doc('${fundId}_$userId');
-
-            final snap = await transaction.get(fundMemberRef);
-            if (!snap.exists) {
-              hasError = true;
-              errorMessage = 'Fund member $userId không tồn tại';
-              return;
-            }
-
-            final data = snap.data()!;
-            int totalPaid = (data['totalPaid'] ?? 0);
-            int totalOwed = (data['totalOwed'] ?? 0);
-
-            if (oldPaidBy.id == userId) {
-              totalPaid -= oldAmount;
-            }
-            totalOwed -= owed;
-
-            transaction.update(fundMemberRef, {
-              'totalPaid': totalPaid,
-              'totalOwed': totalOwed,
-              'balance': totalPaid - totalOwed,
-            });
-          }
-
-          // Apply công nợ mới
-          for (final entry in splitDetail.entries) {
-            final userId = entry.key;
-            final owed = entry.value;
-
-            final fundMemberRef = _firestore
-                .collection('fund_members')
-                .doc('${fundId}_$userId');
-
-            final snap = await transaction.get(fundMemberRef);
-            if (!snap.exists) {
-              hasError = true;
-              errorMessage = 'Fund member $userId không tồn tại';
-              return;
-            }
-
-            final data = snap.data()!;
-            int totalPaid = (data['totalPaid'] ?? 0);
-            int totalOwed = (data['totalOwed'] ?? 0);
-
-            if (paidBy.id == userId) {
-              totalPaid += amount;
-            }
-            totalOwed += owed;
-
-            transaction.update(fundMemberRef, {
-              'totalPaid': totalPaid,
-              'totalOwed': totalOwed,
-              'balance': totalPaid - totalOwed,
-              'lastUpdated': FieldValue.serverTimestamp(),
-            });
-          }
-
-          final diff = amount - oldAmount;
-          transaction.update(fundRef, {
-            'totalSpent': FieldValue.increment(diff),
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
-
-          transaction.update(expenseRef, {
-            'title': title,
-            'amount': amount,
-            'paidBy': paidBy,
-            'date': Timestamp.fromDate(date),
-            'iconId': iconId,
-            'iconEmoji': iconEmoji,
-            'splitType': splitType,
-            'splitDetail': splitDetail,
-          });
-        } catch (e, stack) {
-          debugPrint('🔥 updateExpense TRANSACTION ERROR: $e');
-          debugPrint(stack.toString());
-          hasError = true;
-          errorMessage = 'Lỗi xử lý cập nhật chi phí';
-          return;
+          memberSnaps[userId] = snap;
         }
-      });
 
-      if (hasError) {
-        throw Exception(errorMessage);
-      }
-    } catch (e, stack) {
-      debugPrint('🔥 updateExpense FAILED: $e');
-      debugPrint(stack.toString());
-      throw Exception('Không thể cập nhật chi phí. Vui lòng thử lại.');
+        final Map<DocumentReference, Map<String, dynamic>> updates = {};
+
+        /// 🔹 ROLLBACK OLD EXPENSE
+        for (final entry in expense.splitDetail.entries) {
+          final userId = entry.key;
+          final owed = entry.value;
+
+          final snap = memberSnaps[userId]!;
+
+          int totalPaid = (snap['totalPaid'] ?? 0);
+          int totalOwed = (snap['totalOwed'] ?? 0);
+
+          if (expense.paidBy.id == userId) {
+            totalPaid -= expense.amount;
+          }
+
+          totalOwed -= owed;
+
+          updates[snap.reference] = {
+            'totalPaid': totalPaid,
+            'totalOwed': totalOwed,
+            'balance': totalPaid - totalOwed,
+          };
+        }
+
+        /// 🔹 APPLY NEW EXPENSE
+        for (final entry in splitDetail.entries) {
+          final userId = entry.key;
+          final owed = entry.value;
+
+          final snap = memberSnaps[userId]!;
+
+          int totalPaid =
+              updates[snap.reference]?['totalPaid'] ?? (snap['totalPaid'] ?? 0);
+
+          int totalOwed =
+              updates[snap.reference]?['totalOwed'] ?? (snap['totalOwed'] ?? 0);
+
+          if (paidBy.id == userId) {
+            totalPaid += amount;
+          }
+
+          totalOwed += owed;
+
+          updates[snap.reference] = {
+            'totalPaid': totalPaid,
+            'totalOwed': totalOwed,
+            'balance': totalPaid - totalOwed,
+            'lastUpdated': FieldValue.serverTimestamp(),
+          };
+        }
+
+        for (final entry in updates.entries) {
+          transaction.update(entry.key, entry.value);
+        }
+
+        transaction.update(fundRef, {
+          'totalSpent': FieldValue.increment(amount - expense.amount),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+
+        transaction.update(expenseRef, {
+          'title': title,
+          'amount': amount,
+          'paidBy': paidBy,
+          'date': Timestamp.fromDate(date),
+          'iconId': iconId,
+          'iconEmoji': iconEmoji,
+          'splitType': splitType,
+          'splitDetail': splitDetail,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      });
+    } catch (e) {
+      debugPrint('🔥 updateExpense ERROR: $e');
+      throw Exception('Không thể cập nhật chi tiêu');
+    }
+  }
+
+
+  // =========================
+  // DELETE EXPENSE
+  // =========================
+  Future<void> deleteExpense({
+    required String fundId,
+    required Expense expense,
+  }) async {
+    if (!await _canModifyExpense(expense)) {
+      throw Exception('NO_PERMISSION');
+    }
+
+    final fundRef = _firestore.collection('funds').doc(fundId);
+    final expenseRef = fundRef.collection('expenses').doc(expense.id);
+
+    try {
+      await _firestore.runTransaction((transaction) async {
+        final Map<String, DocumentSnapshot> memberSnaps = {};
+
+        for (final entry in expense.splitDetail.entries) {
+          final userId = entry.key;
+
+          final ref = _firestore
+              .collection('fund_members')
+              .doc('${fundId}_$userId');
+
+          memberSnaps[userId] = await transaction.get(ref);
+        }
+
+        final Map<DocumentReference, Map<String, dynamic>> memberUpdates = {};
+
+        for (final entry in expense.splitDetail.entries) {
+          final userId = entry.key;
+          final owed = entry.value;
+
+          final snap = memberSnaps[userId]!;
+
+          int totalPaid = (snap['totalPaid'] ?? 0);
+          int totalOwed = (snap['totalOwed'] ?? 0);
+
+          if (expense.paidBy.id == userId) {
+            totalPaid -= expense.amount;
+          }
+
+          totalOwed -= owed;
+
+          final ref = snap.reference;
+
+          memberUpdates[ref] = {
+            'totalPaid': totalPaid,
+            'totalOwed': totalOwed,
+            'balance': totalPaid - totalOwed,
+          };
+        }
+
+        for (final entry in memberUpdates.entries) {
+          transaction.update(entry.key, entry.value);
+        }
+
+        transaction.update(fundRef, {
+          'totalSpent': FieldValue.increment(-expense.amount),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+
+        transaction.delete(expenseRef);
+      });
+    } catch (e) {
+      throw Exception('Không thể xóa chi tiêu');
     }
   }
 
@@ -286,14 +351,11 @@ class ExpenseService {
   }
 
   // =========================
-  // GET FUND DATA (để lắng nghe cập nhật totalSpent)
+  // FUND STREAM
   // =========================
   Stream<Fund> getFundStream(String fundId) {
     return _firestore.collection('funds').doc(fundId).snapshots().map((doc) {
-      if (!doc.exists) {
-        throw Exception('Fund not found');
-      }
-      // Giả định bạn đã có Fund.fromFirestore trong file model/fund.dart
+      if (!doc.exists) throw Exception('Fund not found');
       return Fund.fromFirestore(doc);
     });
   }
