@@ -5,6 +5,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:house_pal/models/app_user.dart';
 import 'package:house_pal/Screens/Client/Task/ranking_screen.dart';
 import 'package:house_pal/Screens/Client/Task/task_detail_screen.dart ';
+import 'package:house_pal/models/room.dart';
+import 'package:house_pal/models/task_model.dart'; // Đảm bảo đường dẫn import đúng với project của bạn
 
 void main() {
   runApp(const MainTaskScreen());
@@ -34,6 +36,7 @@ class MainTask extends StatefulWidget {
 
 class _MainTaskState extends State<MainTask> {
   AppUser? currentUser;
+  Room? currentRoom;
   bool isLoadingUser = true;
 
   @override
@@ -50,15 +53,22 @@ class _MainTaskState extends State<MainTask> {
       return;
     }
 
-    final doc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(firebaseUser.uid)
-        .get();
+    final userRef = FirebaseFirestore.instance.collection('users').doc(firebaseUser.uid);
+    final doc = await userRef.get();
 
     if (doc.exists) {
       currentUser = AppUser.fromFirestore(doc);
     }
 
+   final roomQuery = await FirebaseFirestore.instance
+          .collection('rooms')
+          .where('members', arrayContains: userRef)
+          .limit(1)
+          .get();
+
+      if (roomQuery.docs.isNotEmpty) {
+        currentRoom = Room.fromFirestore(roomQuery.docs.first);
+      }
     setState(() => isLoadingUser = false);
   }
 
@@ -68,13 +78,16 @@ class _MainTaskState extends State<MainTask> {
       // Nút cộng vẫn giữ nguyên
       floatingActionButton: isLoadingUser
           ? null
-          : (currentUser != null && currentUser!.canCreateTask)
+          : (currentUser != null && currentUser!.canCreateTask && currentRoom != null)
           ? FloatingActionButton(
               onPressed: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const CreateTaskScreen(),
+                    builder: (context) => CreateTaskScreen(
+                      currentUser: currentUser!,
+                      currentRoom: currentRoom!,
+                    ),
                   ),
                 );
               },
@@ -215,81 +228,112 @@ class _MainTaskState extends State<MainTask> {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            IconButton(
-                              onPressed: () {
-                                // Chức năng lọc có thể được thêm sau
-                              },
-                              icon: const Icon(
-                                Icons.filter_list,
-                                color: Color(0xFF6B7280),
-                              ),
-                            ),
-                          ],
+                            //Nút nagivator đến auto rotate screen
+                                                     ],
                         ),
 
                         const SizedBox(height: 24),
 
-                        // Các thẻ Task
-                        TaskCardItem(
-                          difficulty: 'Dễ',
-                          difficultyColor: Color(0xFF15803D),
-                          difficultyBg: Color(0xFFDCFCE7),
-                          points: '+5',
-                          title: 'Lau nhà',
-                          description: 'Lau sạch toàn bộ sàn nhà và hành lang',
-                          assignee: 'Minh',
-                          assigneeAvatar: 'https://placehold.co/32x32',
-                          onDetailTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const TaskDetailScreen(),
-                              ),
-                            );
-                          },
-                        ),
+                        // Hiển thị danh sách Task từ Firestore
+                        if (currentRoom != null)
+                          StreamBuilder<QuerySnapshot>(
+                            stream: FirebaseFirestore.instance
+                                .collection('rooms')
+                                .doc(currentRoom!.id)
+                                .collection('tasks')
+                                .orderBy('createdAt', descending: true)
+                                .snapshots(),
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState == ConnectionState.waiting) {
+                                return const Center(child: CircularProgressIndicator());
+                              }
+                              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                                return const Center(
+                                  child: Padding(
+                                    padding: EdgeInsets.all(20.0),
+                                    child: Text("Chưa có công việc nào."),
+                                  ),
+                                );
+                              }
 
-                        const SizedBox(height: 16),
+                              final tasks = snapshot.data!.docs;
 
-                        TaskCardItem(
-                          difficulty: 'Trung bình',
-                          difficultyColor: Color(0xFFA16207),
-                          difficultyBg: Color(0xFFFEF9C3),
-                          points: '+10',
-                          title: 'Giặt quần áo',
-                          description: 'Giặt và phơi quần áo cho cả nhà',
-                          assignee: 'Tuấn',
-                          assigneeAvatar: 'https://placehold.co/32x32',
-                          onDetailTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const TaskDetailScreen(),
-                              ),
-                            );
-                          },
-                        ),
+                              return ListView.separated(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: tasks.length,
+                                separatorBuilder: (context, index) => const SizedBox(height: 16),
+                                itemBuilder: (context, index) {
+                                  final data = tasks[index].data() as Map<String, dynamic>;
+                                  // Xử lý màu sắc dựa trên độ khó
+                                  final difficulty = data['difficulty'] ?? 'easy';
+                                  Color diffColor;
+                                  Color diffBg;
+                                  String diffLabel;
 
-                        const SizedBox(height: 16),
+                                  if (difficulty == 'hard') {
+                                    diffColor = const Color(0xFFB91C1C);
+                                    diffBg = const Color(0xFFFEE2E2);
+                                    diffLabel = 'Khó';
+                                  } else if (difficulty == 'medium') {
+                                    diffColor = const Color(0xFFA16207);
+                                    diffBg = const Color(0xFFFEF9C3);
+                                    diffLabel = 'Trung bình';
+                                  } else {
+                                    diffColor = const Color(0xFF15803D);
+                                    diffBg = const Color(0xFFDCFCE7);
+                                    diffLabel = 'Dễ';
+                                  }
 
-                        TaskCardItem(
-                          difficulty: 'Khó',
-                          difficultyColor: Color(0xFFB91C1C),
-                          difficultyBg: Color(0xFFFEE2E2),
-                          points: '+15',
-                          title: 'Dọn phòng tắm',
-                          description: 'Vệ sinh toàn bộ phòng tắm và toilet',
-                          assignee: 'Minh',
-                          assigneeAvatar: 'https://placehold.co/32x32',
-                          onDetailTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const TaskDetailScreen(),
-                              ),
-                            );
-                          },
-                        ),
+                                  // Xác định Reference của người được giao việc
+                                  DocumentReference? assigneeRef;
+                                  if (data['assignMode'] == 'manual') {
+                                    assigneeRef = data['manualAssignedTo'] as DocumentReference?;
+                                  } else {
+                                    // Xử lý chế độ xoay vòng (auto)
+                                    final List<dynamic>? rotationOrder = data['rotationOrder'];
+                                    final int rotationIndex = data['rotationIndex'] ?? 0;
+                                    if (rotationOrder != null && rotationOrder.isNotEmpty) {
+                                      // Dùng phép chia lấy dư để đảm bảo index luôn hợp lệ
+                                      final int safeIndex = rotationIndex % rotationOrder.length;
+                                      assigneeRef = rotationOrder[safeIndex] as DocumentReference?;
+                                    }
+                                  }
+
+                                  // Dùng FutureBuilder để tải thông tin user từ Reference
+                                  return FutureBuilder<DocumentSnapshot>(
+                                    future: assigneeRef?.get(),
+                                    builder: (context, userSnapshot) {
+                                      String assigneeName = '...';
+                                      if (userSnapshot.hasData && userSnapshot.data != null && userSnapshot.data!.exists) {
+                                        final userData = userSnapshot.data!.data() as Map<String, dynamic>;
+                                        assigneeName = userData['name'] ?? 'Thành viên';
+                                      }
+
+                                      return TaskCardItem(
+                                        difficulty: diffLabel,
+                                        difficultyColor: diffColor,
+                                        difficultyBg: diffBg,
+                                        points: '+${data['point'] ?? 0}',
+                                        title: data['title'] ?? 'Không tên',
+                                        description: data['description'] ?? '',
+                                        assignee: assigneeName,
+                                        assigneeAvatar: 'https://placehold.co/32x32',
+                                        onDetailTap: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) => const TaskDetailScreen(),
+                                            ),
+                                          );
+                                        },
+                                      );
+                                    },
+                                  );
+                                },
+                              );
+                            },
+                          ),
 
                         // Khoảng trống dưới cùng (quan trọng để list cuộn lên hết không bị FAB che)
                         const SizedBox(height: 100),

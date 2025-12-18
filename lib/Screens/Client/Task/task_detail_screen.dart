@@ -14,7 +14,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
   // Future<void> _showDeleteConfirm() async {
   //   return showDialog<void>(
-  Future<bool?> _showDeleteConfirm() async {
+   Future<bool?> _showDeleteConfirm() async {
     return showDialog<bool>(
       context: context,
       barrierDismissible: false, // user must tap button!
@@ -71,58 +71,18 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         ),
         actions: [
           if (currentUser != null && currentUser.canCreateTask)
-            // IconButton(
-            //   icon: const Icon(Icons.more_vert, color: Colors.white),
-            //   // onPressed: () {
-            //   //   _showDeleteConfirm();
-            //   // },
-            //   onPressed: () async {
-            //     final shouldDelete = await _showDeleteConfirm();
-            //     if (shouldDelete == true && mounted) {
-            //       Navigator.of(context).pop(); // Go back to the previous screen
-            //     }
-            //   },
-            // )
-            PopupMenuButton<String>(
+            IconButton(
               icon: const Icon(Icons.more_vert, color: Colors.white),
-              onSelected: (value) async {
-                if (value == 'edit') {
-                  // 👉 TODO: chuyển sang màn hình chỉnh sửa
-                  // Navigator.push(context,
-                  //   MaterialPageRoute(builder: (_) => EditTaskScreen(...)),
-                  // );
-                }
-
-                if (value == 'delete') {
-                  final shouldDelete = await _showDeleteConfirm();
-                  if (shouldDelete == true && mounted) {
-                    Navigator.of(context).pop();
-                  }
+              // onPressed: () {
+              //   _showDeleteConfirm();
+              // },
+              onPressed: () async {
+                final shouldDelete = await _showDeleteConfirm();
+                if (shouldDelete == true && mounted) {
+                  Navigator.of(context).pop(); // Go back to the previous screen
                 }
               },
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'edit',
-                  child: Row(
-                    children: [
-                      Icon(Icons.edit, size: 20),
-                      SizedBox(width: 8),
-                      Text('Chỉnh sửa'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(Icons.delete, color: Colors.red, size: 20),
-                      SizedBox(width: 8),
-                      Text('Xóa', style: TextStyle(color: Colors.red)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+            )
         ],
       ),
       body: Column(
@@ -156,7 +116,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         children: [
           const CircleAvatar(
             radius: 24,
-            backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=3'),
+            backgroundImage: NetworkImage(
+              'https://i.pravatar.cc/150?img=3',
+            ),
           ),
           const SizedBox(width: 12),
           const Expanded(
@@ -169,7 +131,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 ),
                 Text(
                   'Minh Anh',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
@@ -282,7 +247,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           child: Icon(icon, color: badgeColor, size: 18),
         ),
         const SizedBox(width: 12),
-        Expanded(child: Text(label)),
+        Expanded(
+          child: Text(label),
+        ),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
@@ -291,7 +258,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           ),
           child: Text(
             value,
-            style: TextStyle(color: badgeColor, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: badgeColor,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
       ],
@@ -339,7 +309,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       color: Colors.white,
       borderRadius: BorderRadius.circular(16),
       boxShadow: const [
-        BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 4)),
+        BoxShadow(
+          color: Colors.black12,
+          blurRadius: 8,
+          offset: Offset(0, 4),
+        ),
       ],
     );
   }
