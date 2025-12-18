@@ -31,8 +31,6 @@ class RankingScreen extends StatelessWidget {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            _filterTabs(),
-            const SizedBox(height: 16),
             _topThreeCard(),
             const SizedBox(height: 16),
             _rankingList(),
@@ -42,44 +40,7 @@ class RankingScreen extends StatelessWidget {
     );
   }
 
-  // ================= TAB TUẦN / THÁNG / NĂM =================
-  Widget _filterTabs() {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: primaryColor.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(30),
-      ),
-      child: Row(
-        children: [
-          _tabItem('Tuần', false),
-          _tabItem('Tháng', true),
-          _tabItem('Năm', false),
-        ],
-      ),
-    );
-  }
-
-  Widget _tabItem(String title, bool active) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: active ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(24),
-        ),
-        child: Text(
-          title,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: active ? primaryColor : Colors.white,
-          ),
-        ),
-      ),
-    );
-  }
+  
 
   // ================= TOP 3 =================
   Widget _topThreeCard() {
