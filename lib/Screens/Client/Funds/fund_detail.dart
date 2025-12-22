@@ -100,7 +100,7 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    'Thành viên',
+                    'Thành viên tham gia',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -291,7 +291,7 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
                   title: Text(
                     exp.title,
                     style: const TextStyle(
-                      fontSize: 16,
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -304,11 +304,16 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
                             'Thanh toán: $paidByName',
                             style: const TextStyle(fontSize: 14),
                           ),
-                          canModify
-                              ? const SizedBox(child: Text(" - "))
-                              : Container(),
                           // const Icon(Icons.monetization_on_outlined, size: 16),
-                          canModify ? Text(
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          Text(
+                            'Số tiền: ',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                          Text(
                             currencyFormat.format(exp.amount),
                             style: const TextStyle(
                               fontSize: 16,
@@ -317,7 +322,7 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
                               //- in nghiêng
                               fontStyle: FontStyle.italic,
                             ),
-                          ) : Container(),
+                          ),
                         ],
                       ),
                       Text(
@@ -336,17 +341,17 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
                           onPressed: () => _showExpenseActions(exp),
                         ),
 
-                      if (!canModify)
-                        Text(
-                          currencyFormat.format(exp.amount),
-                          style: const TextStyle(
-                            fontSize: 16,
-                            color: Colors.redAccent,
-                            fontWeight: FontWeight.bold,
-                            //- in nghiêng
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
+                      // if (!canModify)
+                      //   Text(
+                      //     currencyFormat.format(exp.amount),
+                      //     style: const TextStyle(
+                      //       fontSize: 16,
+                      //       color: Colors.redAccent,
+                      //       fontWeight: FontWeight.bold,
+                      //       //- in nghiêng
+                      //       fontStyle: FontStyle.italic,
+                      //     ),
+                      //   ),
                     ],
                   ),
                   onTap: canModify ? () => _openEditExpense(exp) : null,
@@ -425,7 +430,7 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
         },
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF8B5CFE),
-          padding: const EdgeInsets.symmetric(vertical: 18),
+          padding: const EdgeInsets.symmetric(vertical: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(30),
           ),
