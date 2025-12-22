@@ -89,13 +89,19 @@ class _CreateOrEditFundBottomSheetState extends State<CreateOrEditFundBottomShee
       return role != 'admin';
     }).toList();
 
-    setState(() {
+setState(() {
       _roomMembers = members;
       _currentRoomRef = roomRef;
 
-      // đảm bảo không duplicate, chỉ chọn những member đã lọc (mặc định chọn hết)
-      _selectedMembers.clear();
-      _selectedMembers.addAll(filteredMemberRefs);
+      // 🔥 SỬA TẠI ĐÂY:
+      // Nếu không phải là chế độ Edit, thì mới mặc định chọn tất cả thành viên trong phòng
+      if (!widget.isEdit) {
+        _selectedMembers.clear();
+        _selectedMembers.addAll(filteredMemberRefs);
+      } else {
+        // Nếu là chế độ Edit, _selectedMembers ĐÃ được khởi tạo trong initState
+        // Chúng ta không gọi addAll(filteredMemberRefs) ở đây nữa để tránh chọn thừa người
+      }
     });
   }
 
@@ -204,7 +210,7 @@ class _CreateOrEditFundBottomSheetState extends State<CreateOrEditFundBottomShee
 
               // GridView có chiều cao cố định, scroll độc lập
               SizedBox(
-                height: 340, // đủ cho 4–5 hàng, không bị overflow
+                height: 200,
                 child: GridView.builder(
                   physics: const BouncingScrollPhysics(),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -231,7 +237,7 @@ class _CreateOrEditFundBottomSheetState extends State<CreateOrEditFundBottomShee
                           color: isSelected
                               ? const Color(0xFF4F46E5)
                               : Colors.white,
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(10),
                           border: Border.all(
                             color: isSelected
                                 ? const Color(0xFF4F46E5)
@@ -253,22 +259,22 @@ class _CreateOrEditFundBottomSheetState extends State<CreateOrEditFundBottomShee
                           children: [
                             Text(
                               category.icon,
-                              style: const TextStyle(fontSize: 36),
+                              style: const TextStyle(fontSize: 26),
                             ),
-                            const SizedBox(height: 6),
-                            Text(
-                              category.name,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: isSelected
-                                    ? Colors.white
-                                    : Colors.grey[800],
-                              ),
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                            // const SizedBox(height: 6),
+                            // Text(
+                            //   category.name,
+                            //   style: TextStyle(
+                            //     fontSize: 11,
+                            //     fontWeight: FontWeight.w600,
+                            //     color: isSelected
+                            //         ? Colors.white
+                            //         : Colors.grey[800],
+                            //   ),
+                            //   textAlign: TextAlign.center,
+                            //   maxLines: 2,
+                            //   overflow: TextOverflow.ellipsis,
+                            // ),
                           ],
                         ),
                       ),
