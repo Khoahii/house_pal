@@ -197,6 +197,15 @@ class FundService {
         });
   }
 
+  // Lấy thông tin tài chính cá nhân trong 1 quỹ cụ thể
+  Stream<Map<String, dynamic>?> getMyStatusInFund(String fundId) {
+    return _firestore
+        .collection('fund_members')
+        .doc("${fundId}_$currentUserId")
+        .snapshots()
+        .map((snap) => snap.exists ? snap.data() : null);
+  }
+
   // Xóa quỹ (chỉ creator hoặc admin/room_leader mới được)
   Future<void> deleteFund(String fundId, String creatorId) async {
     final userDoc = await _firestore

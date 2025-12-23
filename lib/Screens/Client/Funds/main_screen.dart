@@ -344,10 +344,71 @@ class _MainFundScreenState extends State<MainFundScreen> {
                               fontSize: 13,
                             ),
                           ),
+
+                          StreamBuilder<Map<String, dynamic>?>(
+                            stream: _fundService.getMyStatusInFund(fund.id),
+                            builder: (context, statusSnapshot) {
+                              if (!statusSnapshot.hasData)
+                                return const SizedBox.shrink();
+
+                              final data = statusSnapshot.data!;
+                              final int balance = (data['balance'] ?? 0)
+                                  .toInt();
+
+                              Color statusColor = Colors.grey;
+                              IconData statusIcon = Icons.check_circle_outline;
+                              String statusText = "Cân bằng";
+
+                              if (balance > 0) {
+                                statusColor = Colors.green;
+                                statusIcon = Icons.arrow_upward;
+                                statusText =
+                                    "Cần thu: ${currencyFormat.format(balance)}";
+                              } else if (balance < 0) {
+                                statusColor = Colors.red;
+                                statusIcon = Icons.arrow_downward;
+                                statusText =
+                                    "Nợ: ${currencyFormat.format(balance.abs())}";
+                              }
+
+                              return Container(
+                                margin: const EdgeInsets.only(top: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: statusColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      statusIcon,
+                                      size: 14,
+                                      color: statusColor,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      statusText,
+                                      style: TextStyle(
+                                        color: statusColor,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
                         ],
                       ),
                     ],
                   ),
+
+                  
 
                   // —— CHỈ ADMIN, LEADER, CREATOR MỚI THẤY MORE VERTICAL ——
                   Row(
