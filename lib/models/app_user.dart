@@ -23,7 +23,7 @@ class AppUser {
     required this.updatedAt,
   });
   bool get canCreateTask {
-  return role == 'admin' || role == 'room_leader';
+  return role == 'room_leader';
 }
   factory AppUser.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
