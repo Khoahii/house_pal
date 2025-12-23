@@ -54,16 +54,16 @@ class _MainFundScreenState extends State<MainFundScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
       appBar: AppBar(
+        //- change background color
         title: const Text(
           "Quỹ Nhóm",
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         centerTitle: false,
         elevation: 0,
-        backgroundColor: Colors.transparent,
-        foregroundColor: Colors.black87,
+        backgroundColor: const Color(0xFF2563EB), // Màu xanh Primary
+        foregroundColor: Colors.white,
       ),
 
       // BỌC StreamBuilder CỦA DANH SÁCH QUỸ BÊN TRONG StreamBuilder CỦA USER
@@ -93,7 +93,6 @@ class _MainFundScreenState extends State<MainFundScreen> {
               final totalSpen = funds.isEmpty
                   ? 0
                   : funds.map((f) => f.totalSpent).reduce((a, b) => a + b);
-
 
               return SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
@@ -408,8 +407,6 @@ class _MainFundScreenState extends State<MainFundScreen> {
                     ],
                   ),
 
-                  
-
                   // —— CHỈ ADMIN, LEADER, CREATOR MỚI THẤY MORE VERTICAL ——
                   Row(
                     children: [
@@ -505,7 +502,6 @@ class _MainFundScreenState extends State<MainFundScreen> {
     );
   }
 
-
   void _showFundActions(Fund fund) {
     showModalBottomSheet(
       context: context,
@@ -536,7 +532,6 @@ class _MainFundScreenState extends State<MainFundScreen> {
       ),
     );
   }
-
 
   Widget _buildEmptyState() {
     return Center(

@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:house_pal/Screens/Client/Funds/components/block_avatar.dart';
 import 'package:house_pal/Screens/Client/Funds/create_or_edit_Expense.dart';
+import 'package:house_pal/Screens/Client/Funds/fund_debt_screen.dart';
 import 'package:house_pal/models/app_user.dart';
 import 'package:house_pal/models/expense.dart';
 import 'package:house_pal/models/fund.dart';
@@ -72,12 +73,11 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
   Widget build(BuildContext context) {
     final String userId = widget.fund.creatorId.id;
     return Scaffold(
-      backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: const Text('Chi tiết quỹ'),
-        backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: Colors.black87,
+        backgroundColor: const Color(0xFF2563EB), // Màu xanh Primary
+        foregroundColor: Colors.white,
       ),
       body: StreamBuilder<AppUser?>(
         stream: _currentUserStream,
@@ -295,7 +295,14 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: TextButton.icon(
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => FundDebtScreen(fund: fund),
+                      ),
+                    );
+                  },
                   label: const Text('Công nợ', style: TextStyle(fontSize: 18)),
                   icon: const Icon(Icons.monetization_on),
                   style: TextButton.styleFrom(

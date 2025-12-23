@@ -266,6 +266,8 @@ class _CreateOrEditExpenseScreenState extends State<CreateOrEditExpenseScreen> {
               ? "Xem chi tiêu"
               : "Thêm chi tiêu",
         ),
+        backgroundColor: const Color(0xFF2563EB), // Màu xanh Primary
+        foregroundColor: Colors.white,
       ),
       body: _loadingMembers
           ? const Center(child: CircularProgressIndicator())
