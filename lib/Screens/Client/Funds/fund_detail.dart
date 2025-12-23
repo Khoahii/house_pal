@@ -342,7 +342,7 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
                         ),
                     ],
                   ),
-                  onTap: canModify ? () => _openEditExpense(exp) : null,
+                  onTap: ()=> _openEditExpense(exp, canModify),
                 );
               },
             );
@@ -352,7 +352,7 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
     );
   }
 
-  void _openEditExpense(Expense expense) {
+  void _openEditExpense(Expense expense, [bool canModify = false]) {
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -360,6 +360,7 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
           fundId: widget.fund.id,
           memberRefs: widget.fund.members,
           expense: expense,
+          canModify: canModify,
         ),
       ),
     );
@@ -379,7 +380,7 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
             title: const Text("Chỉnh sửa chi tiêu"),
             onTap: () {
               Navigator.pop(context);
-              _openEditExpense(expense);
+              _openEditExpense(expense, true);
             },
           ),
           ListTile(
