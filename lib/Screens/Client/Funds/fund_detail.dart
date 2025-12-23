@@ -137,49 +137,120 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
 
   // ================= HEADER =================
   Widget _buildHeader({required String userId}) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: const Color(0xFF4F46E5).withOpacity(0.15),
-            shape: BoxShape.circle,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF4F46E5).withOpacity(0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
           ),
-          child: Text(
-            widget.fund.iconEmoji,
-            style: const TextStyle(fontSize: 48),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Icon Emoji với vòng tròn gradient nhẹ
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFF4F46E5).withOpacity(0.1),
+                  const Color(0xFF4F46E5).withOpacity(0.05),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: const Color(0xFF4F46E5).withOpacity(0.1),
+                width: 2,
+              ),
+            ),
+            child: Text(
+              widget.fund.iconEmoji,
+              style: const TextStyle(fontSize: 52),
+            ),
           ),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          widget.fund.name,
-          style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 6),
-        FutureBuilder<AppUser?>(
-          future: _userService.getUserById(userId),
-          builder: (context, snapshot) {
-            // Tên mặc định/placeholder
-            String creatorName = '...';
+          const SizedBox(height: 20),
 
-            if (snapshot.connectionState == ConnectionState.done) {
-              if (snapshot.hasError) {
-                creatorName = 'Lỗi';
-              } else if (snapshot.data != null) {
-                // Giả sử AppUser có thuộc tính 'name'
-                creatorName = snapshot.data!.name;
-              } else {
-                creatorName = 'Không rõ';
-              }
-            }
+          // Tên Quỹ
+          Text(
+            widget.fund.name,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1F2937), // Màu xám đậm sang trọng
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 12),
 
-            return Text(
-              '${widget.fund.members.length} thành viên • Tạo bởi $creatorName',
-              style: TextStyle(color: Colors.grey[600], fontSize: 14),
-            );
-          },
-        ),
-      ],
+          // Chip chứa thông tin thành viên và người tạo
+          FutureBuilder<AppUser?>(
+            future: _userService.getUserById(userId),
+            builder: (context, snapshot) {
+              String creatorName =
+                  (snapshot.connectionState == ConnectionState.done)
+                  ? (snapshot.data?.name ?? 'Không rõ')
+                  : '...';
+
+              return Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.group_outlined,
+                      size: 16,
+                      color: Colors.grey[600],
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${widget.fund.members.length} thành viên',
+                      style: TextStyle(
+                        color: Colors.grey[700],
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 8),
+                      width: 4,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    Text(
+                      'Tạo bởi: $creatorName',
+                      style: TextStyle(
+                        color: Colors.grey[700],
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -261,19 +332,28 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
       stream: _expensesStream,
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return const CircularProgressIndicator();
+          return const Center(child: CircularProgressIndicator());
         }
 
         final expenses = snapshot.data!;
         if (expenses.isEmpty) {
-          return const Text('Chưa có chi tiêu nào');
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: Text(
+                'Chưa có chi tiêu nào',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ),
+          );
         }
 
         return ListView.separated(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: expenses.length,
-          separatorBuilder: (_, __) => const Divider(),
+          // Bỏ Divider vì chúng ta dùng khoảng trắng giữa các Card
+          separatorBuilder: (_, __) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
             final exp = expenses[index];
             final canModify = _canModifyExpense(currentUser, exp);
@@ -283,66 +363,101 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
               builder: (context, userSnap) {
                 final paidByName = userSnap.data?.name ?? 'Không rõ';
 
-                return ListTile(
-                  leading: Text(
-                    exp.iconEmoji,
-                    style: const TextStyle(fontSize: 28),
-                  ),
-                  title: Text(
-                    exp.title,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                return GestureDetector(
+                  onTap: () => _openEditExpense(exp, canModify),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      // Hiệu ứng đổ bóng giúp Card trông nổi lên
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                      border: Border.all(color: Colors.grey.shade100),
+                    ),
+                    child: Row(
+                      children: [
+                        // Vùng chứa Icon (Trái)
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.blue[50],
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            exp.iconEmoji,
+                            style: const TextStyle(fontSize: 24),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+
+                        // Thông tin chi tiết (Giữa)
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                exp.title,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Người trả: $paidByName',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _formatDateTime(exp.createdAt),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey[400],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Số tiền và Menu (Phải)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            const SizedBox(height: 6),
+                            // Số tiền
+                            Text(
+                              currencyFormat.format(exp.amount),
+                              style: const TextStyle(
+                                fontSize: 16,
+                                color: Colors.redAccent,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (canModify)
+                              IconButton(
+                                constraints: const BoxConstraints(),
+                                padding: const EdgeInsets.only(top: 8),
+                                icon: const Icon(
+                                  Icons.more_horiz,
+                                  color: Colors.grey,
+                                ),
+                                onPressed: () => _showExpenseActions(exp),
+                              ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            'Thanh toán: $paidByName',
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                          // const Icon(Icons.monetization_on_outlined, size: 16),
-                        ],
-                      ),
-                      Row(
-                        children: [
-                          Text(
-                            'Số tiền: ',
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                          Text(
-                            currencyFormat.format(exp.amount),
-                            style: const TextStyle(
-                              fontSize: 16,
-                              color: Colors.redAccent,
-                              fontWeight: FontWeight.bold,
-                              //- in nghiêng
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Text(
-                        _formatDateTime(exp.createdAt),
-                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                      ),
-                    ],
-                  ),
-                  trailing: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      if (canModify)
-                        IconButton(
-                          icon: const Icon(Icons.more_vert),
-                          onPressed: () => _showExpenseActions(exp),
-                        ),
-                    ],
-                  ),
-                  onTap: ()=> _openEditExpense(exp, canModify),
                 );
               },
             );
