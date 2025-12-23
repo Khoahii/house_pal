@@ -261,20 +261,6 @@ setState(() {
                               category.icon,
                               style: const TextStyle(fontSize: 26),
                             ),
-                            // const SizedBox(height: 6),
-                            // Text(
-                            //   category.name,
-                            //   style: TextStyle(
-                            //     fontSize: 11,
-                            //     fontWeight: FontWeight.w600,
-                            //     color: isSelected
-                            //         ? Colors.white
-                            //         : Colors.grey[800],
-                            //   ),
-                            //   textAlign: TextAlign.center,
-                            //   maxLines: 2,
-                            //   overflow: TextOverflow.ellipsis,
-                            // ),
                           ],
                         ),
                       ),
