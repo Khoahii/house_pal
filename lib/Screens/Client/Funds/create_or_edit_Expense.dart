@@ -68,7 +68,7 @@ class _CreateOrEditExpenseScreenState extends State<CreateOrEditExpenseScreen> {
 
     _titleCtrl.text = e.title;
 
-    // 🔥 THAY ĐỔI: Định dạng số tiền có dấu chấm khi hiển thị ở chế độ sửa
+    // Định dạng số tiền có dấu chấm khi hiển thị ở chế độ sửa
     final formatter = NumberFormat.decimalPattern('vi_VN');
     _amountCtrl.text = formatter.format(e.amount);
 
@@ -192,7 +192,7 @@ class _CreateOrEditExpenseScreenState extends State<CreateOrEditExpenseScreen> {
       if (widget.isEdit) {
         await _expenseService.updateExpense(
           fundId: widget.fundId,
-          expense: widget.expense!, // 🔥 FIX
+          expense: widget.expense!,
           title: _titleCtrl.text.trim(),
           amount: amount,
           paidBy: _paidBy!,
@@ -269,31 +269,6 @@ class _CreateOrEditExpenseScreenState extends State<CreateOrEditExpenseScreen> {
   }
 
   /// ================= UI =================
-
-  // Widget _buildBasicInfo() {
-  //   return Column(
-  //     children: [
-  //       TextFormField(
-  //         controller: _titleCtrl,
-  //         decoration: const InputDecoration(
-  //           labelText: "Tiêu đề chi tiêu",
-  //           border: OutlineInputBorder(),
-  //         ),
-  //         validator: (v) => v!.isEmpty ? "Bắt buộc" : null,
-  //       ),
-  //       const SizedBox(height: 12),
-  //       TextFormField(
-  //         controller: _amountCtrl,
-  //         decoration: const InputDecoration(
-  //           labelText: "Số tiền",
-  //           border: OutlineInputBorder(),
-  //         ),
-  //         keyboardType: TextInputType.number,
-  //       ),
-  //     ],
-  //   );
-  // }
-
   Widget _buildBasicInfo() {
     return Column(
       children: [
@@ -516,14 +491,6 @@ class _CreateOrEditExpenseScreenState extends State<CreateOrEditExpenseScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(c.icon, style: const TextStyle(fontSize: 26)),
-                      // Text(
-                      //   c.name,
-                      //   textAlign: TextAlign.center,
-                      //   style: TextStyle(
-                      //     fontSize: 11,
-                      //     color: selected ? Colors.white : Colors.black,
-                      //   ),
-                      // ),
                     ],
                   ),
                 ),

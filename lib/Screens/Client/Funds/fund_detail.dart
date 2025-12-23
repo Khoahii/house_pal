@@ -340,18 +340,6 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
                           icon: const Icon(Icons.more_vert),
                           onPressed: () => _showExpenseActions(exp),
                         ),
-
-                      // if (!canModify)
-                      //   Text(
-                      //     currencyFormat.format(exp.amount),
-                      //     style: const TextStyle(
-                      //       fontSize: 16,
-                      //       color: Colors.redAccent,
-                      //       fontWeight: FontWeight.bold,
-                      //       //- in nghiêng
-                      //       fontStyle: FontStyle.italic,
-                      //     ),
-                      //   ),
                     ],
                   ),
                   onTap: canModify ? () => _openEditExpense(exp) : null,

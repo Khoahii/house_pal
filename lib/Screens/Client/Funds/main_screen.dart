@@ -179,6 +179,7 @@ class _MainFundScreenState extends State<MainFundScreen> {
       ),
 
       floatingActionButton: FloatingActionButton(
+        heroTag: "createFund",
         backgroundColor: const Color(0xFF4F46E5),
         onPressed: _showCreateFundSheet,
         child: const Icon(Icons.add, color: Colors.white),
@@ -351,25 +352,6 @@ class _MainFundScreenState extends State<MainFundScreen> {
                   // —— CHỈ ADMIN, LEADER, CREATOR MỚI THẤY MORE VERTICAL ——
                   Row(
                     children: [
-                      // Container(
-                      //   padding: const EdgeInsets.symmetric(
-                      //     horizontal: 12,
-                      //     vertical: 6,
-                      //   ),
-                      //   decoration: BoxDecoration(
-                      //     color: Colors.green[50],
-                      //     borderRadius: BorderRadius.circular(20),
-                      //   ),
-                      //   child: Text(
-                      //     "Đang mở",
-                      //     style: TextStyle(
-                      //       color: Colors.green[700],
-                      //       fontWeight: FontWeight.bold,
-                      //       fontSize: 12,
-                      //     ),
-                      //   ),
-                      // ),
-
                       // Chỉ hiển thị IconButton nếu có quyền xóa
                       if (canDelete) ...[
                         const SizedBox(width: 8),
