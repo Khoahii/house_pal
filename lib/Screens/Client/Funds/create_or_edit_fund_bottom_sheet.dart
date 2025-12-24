@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:house_pal/models/app_user.dart';
 import 'package:house_pal/models/fund.dart';
 import 'package:house_pal/services/fund_service.dart';
+import 'package:house_pal/services/snack_bar_service.dart';
 import 'package:house_pal/ultils/fund/fund_category.dart';
 
 class CreateOrEditFundBottomSheet extends StatefulWidget {
@@ -14,10 +15,12 @@ class CreateOrEditFundBottomSheet extends StatefulWidget {
   bool get isEdit => fund != null;
 
   @override
-  State<CreateOrEditFundBottomSheet> createState() => _CreateOrEditFundBottomSheetState();
+  State<CreateOrEditFundBottomSheet> createState() =>
+      _CreateOrEditFundBottomSheetState();
 }
 
-class _CreateOrEditFundBottomSheetState extends State<CreateOrEditFundBottomSheet> {
+class _CreateOrEditFundBottomSheetState
+    extends State<CreateOrEditFundBottomSheet> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
 
@@ -89,7 +92,7 @@ class _CreateOrEditFundBottomSheetState extends State<CreateOrEditFundBottomShee
       return role != 'admin';
     }).toList();
 
-setState(() {
+    setState(() {
       _roomMembers = members;
       _currentRoomRef = roomRef;
 
@@ -127,6 +130,10 @@ setState(() {
           iconEmoji: _selectedCategory!.icon,
           members: _selectedMembers.toList(),
         );
+
+        if (mounted) {
+          SnackBarService.showSuccess(context, "Cập nhật quỹ thành công!");
+        }
       } else {
         await _fundService.createFund(
           name: _nameController.text.trim(),
@@ -135,14 +142,21 @@ setState(() {
           roomRef: _currentRoomRef!,
           memberRefs: _selectedMembers.toList(),
         );
+
+        if (mounted) {
+          SnackBarService.showSuccess(context, "Đã tạo quỹ mới thành công!");
+        }
       }
 
       if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) {
+        SnackBarService.showError(context, "Đã xảy ra lỗi: ${e.toString()}");
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -367,8 +381,7 @@ setState(() {
                             strokeWidth: 2.5,
                           ),
                         )
-                      : Text(widget.isEdit ? "Lưu thay đổi" : "Tạo quỹ",
-                        ),
+                      : Text(widget.isEdit ? "Lưu thay đổi" : "Tạo quỹ"),
                 ),
               ),
 
