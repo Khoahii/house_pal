@@ -1,6 +1,10 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:house_pal/Screens/Client/Funds/components/loading_overlay.dart';
 import 'package:house_pal/models/fund.dart';
+import 'package:house_pal/services/fund_service.dart';
+import 'package:house_pal/services/snack_bar_service.dart';
 import 'package:intl/intl.dart';
 
 class FundDebtScreen extends StatelessWidget {
@@ -69,8 +73,12 @@ class FundDebtScreen extends StatelessWidget {
               if (settlements.isEmpty)
                 _buildEmptyState()
               else
+                // Thay đổi dòng map cũ:
                 ...settlements
-                    .map((item) => _buildSettlementStep(item, currencyFormat))
+                    .map(
+                      (item) =>
+                          _buildSettlementStep(item, currencyFormat, context),
+                    )
                     .toList(),
 
               const SizedBox(height: 40),
@@ -236,43 +244,128 @@ class FundDebtScreen extends StatelessWidget {
   }
 
   // Widget hiển thị bước thanh toán (A -> B)
-  Widget _buildSettlementStep(Map<String, dynamic> item, NumberFormat fmt) {
+  Widget _buildSettlementStep(
+    Map<String, dynamic> item,
+    NumberFormat fmt,
+    BuildContext context,
+  ) {
+    // Lấy ID người dùng hiện tại
+    final String currentUserId = FirebaseAuth.instance.currentUser!.uid;
+    // Chỉ người nhận mới thấy nút xác nhận
+    bool isRecipient = item['toId'] == currentUserId;
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.white, Colors.blue.withOpacity(0.05)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.blue.withOpacity(0.1)),
       ),
-      child: Row(
+      child: Column(
         children: [
-          Expanded(child: _nameTag(item['from'], isDebtor: true)),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Column(
-              children: [
-                Text(
-                  fmt.format(item['amount']),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blueAccent,
-                    fontSize: 13,
+          Row(
+            children: [
+              Expanded(child: _nameTag(item['from'], isDebtor: true)),
+              Column(
+                children: [
+                  Text(
+                    fmt.format(item['amount']),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blueAccent,
+                    ),
                   ),
+                  const Icon(
+                    Icons.arrow_forward,
+                    color: Colors.blueAccent,
+                    size: 16,
+                  ),
+                ],
+              ),
+              Expanded(child: _nameTag(item['to'], isDebtor: false)),
+            ],
+          ),
+          if (isRecipient) ...[
+            const Divider(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => _confirmSettlement(context, item),
+                icon: const Icon(Icons.check_circle, size: 18),
+                label: const Text("Xác nhận đã nhận tiền"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  elevation: 0,
                 ),
-                const Icon(
-                  Icons.double_arrow_rounded,
-                  color: Colors.blueAccent,
-                  size: 20,
-                ),
-              ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _confirmSettlement(BuildContext context, Map<String, dynamic> item) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Xác nhận thanh toán"),
+        content: Text(
+          "Bạn xác nhận đã nhận đủ tiền từ ${item['from']}?",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Hủy"),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx); // Đóng Dialog xác nhận trước
+
+              // 1. Hiển thị màn hình Loading chờ đợi
+              LoadingOverlay.show(context, message: "Đang cập nhật công nợ...");
+
+              try {
+                // 2. Thực hiện tính toán trên Firebase
+                final service = FundService();
+                await service.settleDebt(
+                  fundId: fund.id,
+                  fromUserId: item['fromId'],
+                  toUserId: item['toId'],
+                  amount: item['amount'],
+                );
+
+                // 3. Xử lý xong thì ẩn Loading
+                if (context.mounted) LoadingOverlay.hide(context);
+
+                if (context.mounted) {
+                  SnackBarService.showSuccess(
+                    context,
+                    "Quyết toán thành công!",
+                  );
+                }
+              } catch (e) {
+                // Ẩn loading nếu có lỗi
+                if (context.mounted) LoadingOverlay.hide(context);
+
+                if (context.mounted) {
+                  SnackBarService.showError(context, "Lỗi: ${e.toString()}");
+                }
+              }
+            },
+            child: const Text(
+              "Xác nhận",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
+              ),
             ),
           ),
-          Expanded(child: _nameTag(item['to'], isDebtor: false)),
         ],
       ),
     );
@@ -316,6 +409,7 @@ class FundDebtScreen extends StatelessWidget {
     for (var doc in docs) {
       final data = doc.data() as Map<String, dynamic>;
       netBalances.add({
+        'id': data['userId'], // Quan trọng: lấy ID để biết ai là người nhận
         'name': data['userName'],
         'balance': (data['balance'] ?? 0).toInt(),
       });
@@ -342,7 +436,9 @@ class FundDebtScreen extends StatelessWidget {
       if (settled > 0) {
         result.add({
           'from': debtors[i]['name'],
+          'fromId': debtors[i]['id'], // Lưu ID người nợ
           'to': creditors[j]['name'],
+          'toId': creditors[j]['id'], // Lưu ID người nhận
           'amount': settled,
         });
       }

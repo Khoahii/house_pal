@@ -8,6 +8,7 @@ import 'package:house_pal/models/app_user.dart';
 import 'package:house_pal/models/expense.dart';
 import 'package:house_pal/models/fund.dart';
 import 'package:house_pal/services/expense_service.dart';
+import 'package:house_pal/services/snack_bar_service.dart';
 import 'package:house_pal/services/user_service.dart';
 import 'package:intl/intl.dart';
 
@@ -511,13 +512,56 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
               "Xóa chi tiêu",
               style: TextStyle(color: Colors.red),
             ),
-            onTap: () async {
-              Navigator.pop(context);
-              await _expenseService.deleteExpense(
-                fundId: widget.fund.id,
-                expense: expense,
-              );
+            onTap: () {
+              Navigator.pop(context); // Đóng BottomSheet
+              _showConfirmDeleteExpense(expense); // Mở Dialog xác nhận
             },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Hàm xác nhận xóa thực sự
+  void _showConfirmDeleteExpense(Expense expense) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text("Xóa chi tiêu"),
+        content: Text(
+          "Bạn có chắc chắn muốn xóa khoản chi “${expense.title}”?",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Hủy", style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx); // Đóng Dialog
+              try {
+                await _expenseService.deleteExpense(
+                  fundId: widget.fund.id,
+                  expense: expense,
+                );
+
+                if (mounted) {
+                  SnackBarService.showSuccess(
+                    context,
+                    "Xóa chi tiêu thành công!",
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  SnackBarService.showError(context, "Lỗi: ${e.toString()}");
+                }
+              }
+            },
+            child: const Text(
+              "Xóa",
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),

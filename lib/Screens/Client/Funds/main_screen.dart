@@ -6,6 +6,7 @@ import 'package:house_pal/Screens/Client/Funds/fund_detail.dart';
 import 'package:house_pal/models/app_user.dart';
 import 'package:house_pal/models/fund.dart';
 import 'package:house_pal/services/fund_service.dart';
+import 'package:house_pal/services/snack_bar_service.dart';
 import 'package:intl/intl.dart';
 import 'create_or_edit_fund_bottom_sheet.dart';
 
@@ -483,8 +484,15 @@ class _MainFundScreenState extends State<MainFundScreen> {
           ),
           TextButton(
             onPressed: () {
-              _fundService.deleteFund(fund.id, fund.creatorId.id);
-              Navigator.pop(context);
+              try {
+                _fundService.deleteFund(fund.id, fund.creatorId.id);
+                Navigator.pop(context);
+                if (mounted) {
+                  SnackBarService.showSuccess(context, "Xóa quỹ thành công!");
+                }
+              } catch (e) {
+                SnackBarService.showError(context, e.toString());
+              }
             },
             child: const Text("Xóa", style: TextStyle(color: Colors.red)),
           ),
