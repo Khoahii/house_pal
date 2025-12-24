@@ -16,12 +16,19 @@ class CreateOrEditExpenseScreen extends StatefulWidget {
   final Expense? expense;
   final bool? canModify;
 
+  final String? initialTitle;
+  final String? shoppingItemId;
+  final DocumentReference? roomRef;
+
   const CreateOrEditExpenseScreen({
     super.key,
     required this.fundId,
-    required this.memberRefs,
+    this.memberRefs = const [],
     this.expense,
     this.canModify,
+    this.initialTitle,
+    this.shoppingItemId,
+    this.roomRef,
   });
 
   bool get isEdit => expense != null;
@@ -33,194 +40,152 @@ class CreateOrEditExpenseScreen extends StatefulWidget {
 
 class _CreateOrEditExpenseScreenState extends State<CreateOrEditExpenseScreen> {
   final _formKey = GlobalKey<FormState>();
-
   final _titleCtrl = TextEditingController();
   final _amountCtrl = TextEditingController();
-
   final ExpenseService _expenseService = ExpenseService();
 
   List<AppUser> _members = [];
   bool _loadingMembers = true;
-
-  final Map<DocumentReference, TextEditingController> _splitCtrls = {};
-
   DocumentReference? _paidBy;
   DateTime _date = DateTime.now();
-
   FundCategory? _selectedCategory;
 
-  /// equal | custom | percentage
+  /// equal | custom
   String _splitType = 'equal';
-
-  /// % lưu cho custom + percentage
   final Map<DocumentReference, int> _splitDetail = {};
   final Set<DocumentReference> _selectedMembers = {};
-
   bool _isSubmitting = false;
 
   @override
   void initState() {
     super.initState();
+    if (widget.initialTitle != null && !widget.isEdit) {
+      _titleCtrl.text = widget.initialTitle!;
+    }
     _loadMembers();
   }
 
-  /// ================= INIT EDIT =================
+  Future<void> _loadMembers() async {
+    List<DocumentReference> refs = widget.memberRefs;
+
+    if (refs.isEmpty) {
+      final fundDoc = await FirebaseFirestore.instance
+          .collection('funds')
+          .doc(widget.fundId)
+          .get();
+      if (fundDoc.exists) {
+        final data = fundDoc.data() as Map<String, dynamic>;
+        refs = List<DocumentReference>.from(data['members'] ?? []);
+      }
+    }
+
+    final snaps = await Future.wait(refs.map((e) => e.get()));
+    final users = snaps
+        .where((d) => d.exists)
+        .map(AppUser.fromFirestore)
+        .toList();
+
+    if (mounted) {
+      setState(() {
+        _members = users;
+        _loadingMembers = false;
+
+        if (!widget.isEdit) {
+          // 1. Tự động chọn tất cả thành viên
+          _selectedMembers.addAll(users.map((u) => _userRef(u.uid)));
+
+          // 2. Tự động chọn người trả là User hiện tại
+          final currentUid = FirebaseAuth.instance.currentUser?.uid;
+          if (currentUid != null) {
+            _paidBy = _userRef(currentUid);
+          } else if (users.isNotEmpty) {
+            _paidBy = _userRef(users.first.uid);
+          }
+        }
+      });
+
+      if (widget.isEdit) _initEditData();
+    }
+  }
+
   void _initEditData() {
-    final e = widget.expense;
-    if (e == null) return;
-
-    // 1. Gán các thông tin cơ bản
+    final e = widget.expense!;
     _titleCtrl.text = e.title;
-
-    // Định dạng số tiền có dấu chấm khi hiển thị (vi_VN: 100.000)
-    final formatter = NumberFormat.decimalPattern('vi_VN');
-    _amountCtrl.text = formatter.format(e.amount);
-
+    _amountCtrl.text = NumberFormat.decimalPattern('vi_VN').format(e.amount);
     _paidBy = e.paidBy;
     _date = e.date;
     _splitType = e.splitType;
 
-    // 2. Làm sạch dữ liệu tạm trước khi map lại
     _splitDetail.clear();
     _selectedMembers.clear();
 
-    // 3. Duyệt qua dữ liệu phân chia cũ trong DB
     for (final entry in e.splitDetail.entries) {
-      final userId = entry.key;
-      final amountVnd = entry.value;
-
-      // Tìm member trong danh sách _members đã load từ fundId
-      // Sử dụng try-catch hoặc findIndex để tránh crash nếu user đó đã bị xóa khỏi hệ thống hoàn toàn
-      try {
-        final member = _members.firstWhere((m) => m.uid == userId);
-
-        final userRef = FirebaseFirestore.instance
-            .collection('users')
-            .doc(member.uid);
-
-        // Đánh dấu người này ĐÃ THAM GIA vào khoản chi này
-        _selectedMembers.add(userRef);
-
-        // Tính toán lại % (quan trọng cho chế độ 'percentage' và 'custom')
-        if (e.amount > 0) {
-          final percent = ((amountVnd / e.amount) * 100).round();
-          _splitDetail[userRef] = percent;
-        } else {
-          _splitDetail[userRef] = 0;
-        }
-      } catch (e) {
-        debugPrint(
-          "Không tìm thấy thành viên $userId trong danh sách quỹ hiện tại.",
-        );
-        // Bỏ qua nếu người này không còn trong quỹ hoặc không tồn tại
+      final userRef = _userRef(entry.key);
+      _selectedMembers.add(userRef);
+      if (e.amount > 0) {
+        _splitDetail[userRef] = ((entry.value / e.amount) * 100).round();
       }
     }
 
-    // 4. Khôi phục Icon/Category
     _selectedCategory = fundCategories.firstWhere(
       (c) => c.id == e.iconId,
       orElse: () => fundCategories.first,
     );
-
-    // Cập nhật lại UI sau khi đã map xong data
     setState(() {});
-  }
-
-  /// ================= LOAD MEMBERS =================
-  Future<void> _loadMembers() async {
-    final snaps = await Future.wait(widget.memberRefs.map((e) => e.get()));
-    final users = snaps.map(AppUser.fromFirestore).toList();
-
-    setState(() {
-      _members = users;
-      _paidBy ??= FirebaseFirestore.instance
-          .collection('users')
-          .doc(FirebaseAuth.instance.currentUser!.uid);
-
-      // Nếu là tạo mới: Mặc định chọn TẤT CẢ thành viên hiện tại
-      if (!widget.isEdit) {
-        for (final u in users) {
-          _selectedMembers.add(_userRef(u.uid));
-        }
-      }
-
-      _loadingMembers = false;
-    });
-
-    // Gọi Init Edit sau khi đã có danh sách members
-    if (widget.isEdit) {
-      _initEditData();
-    }
   }
 
   DocumentReference _userRef(String uid) =>
       FirebaseFirestore.instance.collection('users').doc(uid);
 
-  void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-  }
-
-  /// ================= SUBMIT =================
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate() ||
         _paidBy == null ||
         _selectedCategory == null) {
-      _showError("Vui lòng nhập đủ thông tin");
+      SnackBarService.showError(context, "Vui lòng nhập đủ thông tin");
       return;
     }
 
-    final rawAmount = _amountCtrl.text.replaceAll('.', '').trim();
-    final amount = int.tryParse(rawAmount);
-
+    final amount = int.tryParse(_amountCtrl.text.replaceAll('.', ''));
     if (amount == null || amount <= 0) {
-      _showError("Số tiền không hợp lệ");
+      SnackBarService.showError(context, "Số tiền không hợp lệ");
       return;
     }
 
     if (_selectedMembers.isEmpty) {
-      _showError("Phải chọn ít nhất 1 người tham gia");
+      SnackBarService.showError(context, "Phải chọn ít nhất 1 người tham gia");
       return;
     }
 
     Map<String, int> result = {};
-
-    /// ===== CHIA ĐỀU =====
     if (_splitType == 'equal') {
       final count = _selectedMembers.length;
       final per = amount ~/ count;
       int used = 0;
-
-      // Chuyển Set sang List để lấy index
-      final selectedList = _selectedMembers.toList();
-
+      final list = _selectedMembers.toList();
       for (int i = 0; i < count; i++) {
-        final ref = selectedList[i];
-        final value = (i == count - 1) ? amount - used : per;
-        used += value;
-        result[ref.id] = value;
+        final val = (i == count - 1) ? amount - used : per;
+        used += val;
+        result[list[i].id] = val;
       }
-    }
-    /// ===== CHIA THEO % HOẶC CUSTOM =====
-    else {
-      // Logic kiểm tra 100% nếu là 'percentage'
-      if (_splitType == 'percentage') {
-        final total = _splitDetail.entries
-            .where((e) => _selectedMembers.contains(e.key))
-            .fold<int>(0, (a, b) => a + b.value);
-        if (total != 100) {
-          _showError("Tổng phần trăm phải bằng 100% (Hiện tại: $total%)");
-          return;
-        }
+    } else {
+      // Logic Tùy chỉnh (Tổng % phải = 100)
+      final totalPercent = _selectedMembers.fold<int>(
+        0,
+        (sum, ref) => sum + (_splitDetail[ref] ?? 0),
+      );
+      if (totalPercent != 100) {
+        SnackBarService.showError(
+          context,
+          "Tổng tỉ lệ phải bằng 100% (Hiện tại: $totalPercent%)",
+        );
+        return;
       }
-
       for (final ref in _selectedMembers) {
-        final percent = _splitDetail[ref] ?? 0;
-        result[ref.id] = (amount * percent / 100).round();
+        result[ref.id] = (amount * (_splitDetail[ref] ?? 0) / 100).round();
       }
     }
 
     setState(() => _isSubmitting = true);
-
     try {
       if (widget.isEdit) {
         await _expenseService.updateExpense(
@@ -235,10 +200,6 @@ class _CreateOrEditExpenseScreenState extends State<CreateOrEditExpenseScreen> {
           splitType: _splitType,
           splitDetail: result,
         );
-
-        if (mounted) {
-          SnackBarService.showSuccess(context, "Cập nhật chi tiêu thành công!");
-        }
       } else {
         await _expenseService.createExpense(
           fundId: widget.fundId,
@@ -250,131 +211,107 @@ class _CreateOrEditExpenseScreenState extends State<CreateOrEditExpenseScreen> {
           iconEmoji: _selectedCategory!.icon,
           splitType: _splitType,
           splitDetail: result,
+          shoppingItemId: widget.shoppingItemId,
+          roomRef: widget.roomRef,
         );
-
-        if (mounted) {
-          SnackBarService.showSuccess(context, "Tạo chi tiêu thành công!");
-        }
       }
-
-      if (mounted) Navigator.pop(context);
-    } catch (e) {
       if (mounted) {
-        SnackBarService.showError(context, "Đã xảy ra lỗi: ${e.toString()}");
+        SnackBarService.showSuccess(context, "Thành công!");
+        Navigator.pop(context);
       }
+    } catch (e) {
+      if (mounted) SnackBarService.showError(context, e.toString());
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
-  /// ================= BUILD =================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          (widget.isEdit && widget.canModify == true)
-              ? "Chỉnh sửa chi tiêu"
-              : (widget.isEdit && widget.canModify == false)
-              ? "Xem chi tiêu"
-              : "Thêm chi tiêu",
-        ),
-        backgroundColor: const Color(0xFF2563EB), // Màu xanh Primary
+        title: Text(widget.isEdit ? "Chỉnh sửa chi tiêu" : "Thêm chi tiêu"),
+        backgroundColor: const Color(0xFF2563EB),
         foregroundColor: Colors.white,
       ),
       body: _loadingMembers
           ? const Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: const EdgeInsets.all(16),
-              child: Form(
-                key: _formKey,
-                child: ListView(
-                  children: [
-                    _buildBasicInfo(),
-                    const SizedBox(height: 16),
-                    _buildPaidBy(),
-                    const SizedBox(height: 16),
-                    _buildDatePicker(),
-                    const SizedBox(height: 20),
-                    _buildCategory(),
-                    const SizedBox(height: 20),
-                    _buildSplitType(),
-                    _buildSplitDetail(),
-                    const SizedBox(height: 24),
-                    (widget.canModify == true || widget.isEdit == false)
-                        ? ElevatedButton(
-                            onPressed: _isSubmitting ? null : _submit,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF8B5CFE),
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: Text(
-                              widget.isEdit ? "Lưu thay đổi" : "Thêm chi tiêu",
-                            ),
-                          )
-                        : Container(),
-                  ],
-                ),
+          : Form(
+              key: _formKey,
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  _buildBasicInfo(),
+                  const SizedBox(height: 16),
+                  _buildPaidBy(),
+                  const SizedBox(height: 16),
+                  _buildDatePicker(),
+                  const SizedBox(height: 20),
+                  Text("Chọn icon chi tiêu", style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),),
+                  const SizedBox(height: 8),
+                  _buildCategory(),
+                  const SizedBox(height: 20),
+                  _buildSplitType(),
+                  _buildSplitDetail(),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: _isSubmitting ? null : _submit,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF8B5CFE),
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 50),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: _isSubmitting
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : Text(
+                            widget.isEdit ? "Lưu thay đổi" : "Thêm chi tiêu",
+                          ),
+                  ),
+                ],
               ),
             ),
     );
   }
 
-  /// ================= UI =================
   Widget _buildBasicInfo() {
     return Column(
       children: [
-        // 1. Ô NHẬP TIỀN (Đã đưa lên trước và làm lớn hơn)
         TextFormField(
           controller: _amountCtrl,
           keyboardType: TextInputType.number,
-          textAlign: TextAlign.center, // Căn giữa số tiền cho chuyên nghiệp
+          textAlign: TextAlign.center,
           style: const TextStyle(
-            fontSize: 36, // Tăng kích thước lớn hơn nữa
+            fontSize: 36,
             fontWeight: FontWeight.bold,
-            color: Color.fromARGB(255, 52, 255, 126),
-            letterSpacing: 1.2,
+            color: Colors.green,
           ),
           inputFormatters: [
             FilteringTextInputFormatter.digitsOnly,
             CurrencyInputFormatter(),
           ],
-          decoration: InputDecoration(
+          decoration: const InputDecoration(
             labelText: "Số tiền (VNĐ)",
-            floatingLabelBehavior: FloatingLabelBehavior
-                .always, // Luôn hiển thị label nhỏ phía trên
-            labelStyle: const TextStyle(fontSize: 18, color: Colors.grey),
+            floatingLabelBehavior: FloatingLabelBehavior.always,
             hintText: "0",
-            suffixText: "", // Thêm đơn vị tiền tệ ở cuối
-            suffixStyle: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
+            enabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: Colors.grey),
             ),
-
-            // Loại bỏ Outline và chỉ dùng Underline
-            enabledBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.grey, width: 1),
+            focusedBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: Colors.green, width: 2),
             ),
-            focusedBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(
-                color: Color.fromARGB(255, 52, 255, 126),
-                width: 2,
-              ),
-            ),
-            contentPadding: const EdgeInsets.symmetric(vertical: 10),
           ),
         ),
-
-        const SizedBox(height: 20), // Khoảng cách rộng hơn
-        // 2. Ô NHẬP TIÊU ĐỀ
+        const SizedBox(height: 20),
         TextFormField(
           controller: _titleCtrl,
           decoration: InputDecoration(
             labelText: "Tiêu đề chi tiêu",
-            hintText: "Ví dụ: Ăn trưa, Đổ xăng...",
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
           validator: (v) => v!.isEmpty ? "Bắt buộc nhập tiêu đề" : null,
@@ -384,82 +321,58 @@ class _CreateOrEditExpenseScreenState extends State<CreateOrEditExpenseScreen> {
   }
 
   Widget _buildPaidBy() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text("Người thanh toán"),
-        const SizedBox(height: 6),
-        DropdownButtonFormField<DocumentReference>(
-          value: _paidBy,
-          decoration: const InputDecoration(border: OutlineInputBorder()),
-          items: _members.map((u) {
-            final ref = _userRef(u.uid);
-            return DropdownMenuItem(value: ref, child: Text(u.name));
-          }).toList(),
-          onChanged: (v) => setState(() => _paidBy = v),
-        ),
-      ],
+    return DropdownButtonFormField<DocumentReference>(
+      value: _paidBy,
+      decoration: const InputDecoration(
+        labelText: "Người thanh toán",
+        border: OutlineInputBorder(),
+      ),
+      items: _members
+          .map(
+            (u) =>
+                DropdownMenuItem(value: _userRef(u.uid), child: Text(u.name)),
+          )
+          .toList(),
+      onChanged: (v) => setState(() => _paidBy = v),
     );
   }
 
   Widget _buildDatePicker() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text("Ngày thanh toán"),
-        const SizedBox(height: 6),
-        InkWell(
-          onTap: () async {
-            final picked = await showDatePicker(
-              context: context,
-              initialDate: _date,
-              firstDate: DateTime(2020),
-              lastDate: DateTime.now(),
-            );
-            if (picked != null) {
-              setState(() => _date = picked);
-            }
-          },
-          child: InputDecorator(
-            decoration: const InputDecoration(border: OutlineInputBorder()),
-            child: Text("${_date.day}/${_date.month}/${_date.year}"),
-          ),
+    return InkWell(
+      onTap: () async {
+        final picked = await showDatePicker(
+          context: context,
+          initialDate: _date,
+          firstDate: DateTime(2020),
+          lastDate: DateTime.now(),
+        );
+        if (picked != null) setState(() => _date = picked);
+      },
+      child: InputDecorator(
+        decoration: const InputDecoration(
+          labelText: "Ngày thanh toán",
+          border: OutlineInputBorder(),
         ),
-      ],
+        child: Text(DateFormat('dd/MM/yyyy').format(_date)),
+      ),
     );
   }
 
   Widget _buildSplitType() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: [
-        const Text(
-          "Hình thức chia",
-          style: TextStyle(fontWeight: FontWeight.bold),
+        ChoiceChip(
+          label: const Text("Chia đều"),
+          selected: _splitType == 'equal',
+          onSelected: (_) => setState(() => _splitType = 'equal'),
         ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 10,
-          children: [
-            _splitChip('equal', 'Chia đều', Icons.groups),
-            _splitChip('custom', 'Tùy chỉnh %', Icons.person),
-            _splitChip('percentage', 'Theo %', Icons.percent),
-          ],
+        const SizedBox(width: 12),
+        ChoiceChip(
+          label: const Text("Tùy chỉnh %"),
+          selected: _splitType == 'custom',
+          onSelected: (_) => setState(() => _splitType = 'custom'),
         ),
       ],
-    );
-  }
-
-  Widget _splitChip(String value, String label, IconData icon) {
-    return ChoiceChip(
-      label: Text(label),
-      selected: _splitType == value,
-      onSelected: (_) {
-        setState(() {
-          _splitType = value;
-          _splitDetail.clear();
-        });
-      },
     );
   }
 
@@ -467,106 +380,70 @@ class _CreateOrEditExpenseScreenState extends State<CreateOrEditExpenseScreen> {
     return Card(
       margin: const EdgeInsets.only(top: 16),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.all(12),
-            child: Text(
-              "Chọn người tham gia chia tiền:",
-              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
+        children: _members.map((u) {
+          final ref = _userRef(u.uid);
+          final isSelected = _selectedMembers.contains(ref);
+          return ListTile(
+            leading: Checkbox(
+              value: isSelected,
+              onChanged: (v) => setState(() {
+                if (v == true)
+                  _selectedMembers.add(ref);
+                else if (_selectedMembers.length > 1)
+                  _selectedMembers.remove(ref);
+              }),
             ),
-          ),
-          ..._members.map((u) {
-            final ref = _userRef(u.uid);
-            final isSelected = _selectedMembers.contains(ref);
-
-            return ListTile(
-              leading: Checkbox(
-                value: isSelected,
-                onChanged: (v) {
-                  setState(() {
-                    if (v == true) {
-                      _selectedMembers.add(ref);
-                    } else {
-                      // Không cho phép bỏ chọn hết sạch người
-                      if (_selectedMembers.length > 1) {
-                        _selectedMembers.remove(ref);
-                        _splitDetail.remove(ref);
-                      }
-                    }
-                  });
-                },
-              ),
-              title: Text(u.name),
-              trailing: (_splitType != 'equal')
-                  ? SizedBox(
-                      width: 80,
-                      child: TextFormField(
-                        // Sử dụng key để ép Flutter rebuild controller khi chuyển đổi thành viên
-                        key: ValueKey("input_${u.uid}_$_splitType"),
-                        initialValue: _splitDetail[ref]?.toString() ?? '',
-                        enabled: isSelected,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          suffixText: '%',
-                          isDense: true,
-                        ),
-                        onChanged: (v) {
-                          _splitDetail[ref] = int.tryParse(v) ?? 0;
-                        },
+            title: Text(u.name),
+            trailing: _splitType == 'custom' && isSelected
+                ? SizedBox(
+                    width: 70,
+                    child: TextFormField(
+                      key: ValueKey("custom_${u.uid}"),
+                      initialValue: _splitDetail[ref]?.toString() ?? '0',
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        suffixText: '%',
+                        isDense: true,
                       ),
-                    )
-                  : null, // Ở chế độ equal thì không hiện ô nhập %
-            );
-          }).toList(),
-        ],
+                      onChanged: (v) =>
+                          _splitDetail[ref] = int.tryParse(v) ?? 0,
+                    ),
+                  )
+                : null,
+          );
+        }).toList(),
       ),
     );
   }
 
   Widget _buildCategory() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "Biểu tượng chi tiêu",
-          style: TextStyle(fontWeight: FontWeight.bold),
+    return SizedBox(
+      height: 200,
+      child: GridView.builder(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 5,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
         ),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 200,
-          child: GridView.builder(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 5,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
+        itemCount: fundCategories.length,
+        itemBuilder: (_, i) {
+          final c = fundCategories[i];
+          final isSel = _selectedCategory?.id == c.id;
+          return GestureDetector(
+            onTap: () => setState(() => _selectedCategory = c),
+            child: Container(
+              decoration: BoxDecoration(
+                color: isSel ? Colors.indigo : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: isSel ? Colors.indigo : Colors.grey),
+              ),
+              child: Center(
+                child: Text(c.icon, style: const TextStyle(fontSize: 26)),
+              ),
             ),
-            itemCount: fundCategories.length,
-            itemBuilder: (_, i) {
-              final c = fundCategories[i];
-              final selected = _selectedCategory?.id == c.id;
-              return GestureDetector(
-                onTap: () => setState(() => _selectedCategory = c),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: selected ? Colors.indigo : Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: selected ? Colors.indigo : Colors.grey,
-                    ),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(c.icon, style: const TextStyle(fontSize: 26)),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
+          );
+        },
+      ),
     );
   }
 
@@ -574,9 +451,6 @@ class _CreateOrEditExpenseScreenState extends State<CreateOrEditExpenseScreen> {
   void dispose() {
     _titleCtrl.dispose();
     _amountCtrl.dispose();
-    for (final c in _splitCtrls.values) {
-      c.dispose();
-    }
     super.dispose();
   }
 }

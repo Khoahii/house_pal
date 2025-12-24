@@ -6,7 +6,6 @@ import '../../../services/fund_service.dart';
 import '../../../models/fund.dart';
 import 'package:house_pal/Screens/Client/Funds/create_or_edit_Expense.dart';
 
-
 class ShoppingTab extends StatelessWidget {
   final DocumentReference roomRef;
   ShoppingTab({super.key, required this.roomRef});
@@ -22,17 +21,14 @@ class ShoppingTab extends StatelessWidget {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final unbought =
-            snapshot.data!.where((e) => e.linkedExpenseId == null);
-        final bought =
-            snapshot.data!.where((e) => e.linkedExpenseId != null);
+        final unbought = snapshot.data!.where((e) => e.linkedExpenseId == null);
+        final bought = snapshot.data!.where((e) => e.linkedExpenseId != null);
 
         return ListView(
           children: [
             _addButton(context),
-           _section(context, "🛒 Cần mua", unbought.toList()),
-          _section(context, "✅ Đã mua", bought.toList()),
-
+            _section(context, "🛒 Cần mua", unbought.toList()),
+            _section(context, "✅ Đã mua", bought.toList()),
           ],
         );
       },
@@ -46,8 +42,11 @@ class ShoppingTab extends StatelessWidget {
     );
   }
 
-    Widget _section(BuildContext context,String title,List<ShoppingItem> items,)
- {
+  Widget _section(
+    BuildContext context,
+    String title,
+    List<ShoppingItem> items,
+  ) {
     if (items.isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -55,269 +54,247 @@ class ShoppingTab extends StatelessWidget {
         const SizedBox(height: 12),
         Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
         ...items.map((e) => _card(context, e)),
-
       ],
     );
   }
 
   Widget _card(BuildContext context, ShoppingItem item) {
-  final done = item.linkedExpenseId != null;
+    final done = item.linkedExpenseId != null;
 
-  return Card(
-    color: done ? Colors.green.shade50 : null,
-    child: ListTile(
-      // 👉 TAP = SỬA (CHỈ KHI CHƯA TẠO EXPENSE)
-      onTap: done
-          ? null
-          : () => _openAddOrEditSheet(
-                context,
-                editItem: item,
-              ),
+    return Card(
+      color: done ? Colors.green.shade50 : null,
+      child: ListTile(
+        // 👉 TAP = SỬA (CHỈ KHI CHƯA TẠO EXPENSE)
+        onTap: done ? null : () => _openAddOrEditSheet(context, editItem: item),
 
-      title: Text(
-        item.title,
-        style: TextStyle(
-          decoration: done ? TextDecoration.lineThrough : null,
+        title: Text(
+          item.title,
+          style: TextStyle(
+            decoration: done ? TextDecoration.lineThrough : null,
+          ),
         ),
-      ),
 
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text("Quỹ: ${item.fundName}"),
-          if (item.note != null)
-            Text(
-              item.note!,
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-        ],
-      ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Quỹ: ${item.fundName}"),
+            if (item.note != null)
+              Text(
+                item.note!,
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+          ],
+        ),
 
-      trailing: done
-          ? const Icon(Icons.check_circle, color: Colors.green)
-          : PopupMenuButton<String>(
-              onSelected: (value) async {
-                if (value == 'edit') {
-                  _openAddOrEditSheet(
-                    context,
-                    editItem: item,
-                  );
-                }
+        trailing: done
+            ? const Icon(Icons.check_circle, color: Colors.green)
+            : PopupMenuButton<String>(
+                onSelected: (value) async {
+                  if (value == 'edit') {
+                    _openAddOrEditSheet(context, editItem: item);
+                  }
 
-                if (value == 'delete') {
-                  await roomRef
-                      .collection('shopping_items')
-                      .doc(item.id)
-                      .delete();
-                }
-              },
-              itemBuilder: (_) => const [
-                PopupMenuItem(
-                  value: 'edit',
-                  child: Text('Sửa'),
-                ),
-                PopupMenuItem(
-                  value: 'delete',
-                  child: Text(
-                    'Xoá',
-                    style: TextStyle(color: Colors.red),
+                  if (value == 'delete') {
+                    await roomRef
+                        .collection('shopping_items')
+                        .doc(item.id)
+                        .delete();
+                  }
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'edit', child: Text('Sửa')),
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Text('Xoá', style: TextStyle(color: Colors.red)),
                   ),
-                ),
-              ],
-            ),
-    ),
-  );
-
-
+                ],
+              ),
+      ),
+    );
   }
 
-  void _openAddOrEditSheet(
-  BuildContext context, {
-  ShoppingItem? editItem,
-}) {
-  final isEdit = editItem != null;
+  void _openAddOrEditSheet(BuildContext context, {ShoppingItem? editItem}) {
+    final isEdit = editItem != null;
 
-  final titleCtrl = TextEditingController(text: editItem?.title ?? '');
-  final noteCtrl = TextEditingController(text: editItem?.note ?? '');
+    final titleCtrl = TextEditingController(text: editItem?.title ?? '');
+    final noteCtrl = TextEditingController(text: editItem?.note ?? '');
 
-  String? selectedFundId = editItem?.fundId;
-  String? selectedFundName = editItem?.fundName;
+    String? selectedFundId = editItem?.fundId;
+    String? selectedFundName = editItem?.fundName;
 
-  final fundService = FundService();
-  final shoppingService = ShoppingService();
+    final fundService = FundService();
+    final shoppingService = ShoppingService();
 
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.white,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-    ),
-    builder: (context) {
-      final bottom = MediaQuery.of(context).viewInsets.bottom;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (context) {
+        final bottom = MediaQuery.of(context).viewInsets.bottom;
 
-      return Padding(
-        padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottom),
-        child: StatefulBuilder(
-          builder: (context, setLocal) {
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ===== HEADER =====
-                Row(
-                  children: [
-                    Text(
-                      isEdit ? 'Sửa mục mua sắm' : 'Thêm mục mua sắm',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+        return Padding(
+          padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottom),
+          child: StatefulBuilder(
+            builder: (context, setLocal) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ===== HEADER =====
+                  Row(
+                    children: [
+                      Text(
+                        isEdit ? 'Sửa mục mua sắm' : 'Thêm mục mua sắm',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 12),
-
-                // ===== TITLE =====
-                TextField(
-                  controller: titleCtrl,
-                  decoration: const InputDecoration(
-                    hintText: 'Tên sản phẩm',
-                    filled: true,
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
                   ),
-                ),
 
-                const SizedBox(height: 10),
-
-                // ===== NOTE =====
-                TextField(
-                  controller: noteCtrl,
-                  decoration: const InputDecoration(
-                    hintText: 'Ghi chú (tuỳ chọn)',
-                    filled: true,
-                  ),
-                ),
-
-                const SizedBox(height: 14),
-
-                // ===== FUND DROPDOWN =====
-                StreamBuilder<List<Fund>>(
-                  stream: fundService.getMyFundsStream(),
-                  builder: (context, snapshot) {
-                    if (!snapshot.hasData) {
-                      return const CircularProgressIndicator();
-                    }
-
-                    final funds = snapshot.data!;
-                    return DropdownButtonFormField<String>(
-                      value: selectedFundId,
-                      hint: const Text('Chọn quỹ'),
-                      items: funds.map((fund) {
-                        return DropdownMenuItem(
-                          value: fund.id,
-                          child: Text(fund.name),
-                        );
-                      }).toList(),
-                      onChanged: (v) {
-                        final fund =
-                            funds.firstWhere((f) => f.id == v);
-                        setLocal(() {
-                          selectedFundId = fund.id;
-                          selectedFundName = fund.name;
-                        });
-                      },
-                    );
-                  },
-                ),
-
-                const SizedBox(height: 20),
-
-                // ===== ACTION BUTTONS =====
-                SizedBox(
-                  width: double.infinity,
-                  height: 46,
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      final title = titleCtrl.text.trim();
-                      final note = noteCtrl.text.trim();
-
-                      if (title.isEmpty ||
-                          selectedFundId == null ||
-                          selectedFundName == null) {
-                        return;
-                      }
-
-                      if (isEdit) {
-                        await roomRef
-                            .collection('shopping_items')
-                            .doc(editItem!.id)
-                            .update({
-                          'title': title,
-                          'note': note.isEmpty ? null : note,
-                          'fundId': selectedFundId,
-                          'fundName': selectedFundName,
-                          'updatedAt':
-                              FieldValue.serverTimestamp(),
-                        });
-                      } else {
-                        await shoppingService.addItem(
-                          roomRef: roomRef,
-                          title: title,
-                          note: note,
-                          fundId: selectedFundId!,
-                          fundName: selectedFundName!,
-                        );
-                      }
-
-                      Navigator.pop(context);
-                    },
-                    child: Text(isEdit ? 'Lưu' : 'Thêm'),
-                  ),
-                ),
-
-                // ===== DELETE + CREATE EXPENSE =====
-                if (isEdit) ...[
                   const SizedBox(height: 12),
 
-                  // DELETE
-                  
+                  // ===== TITLE =====
+                  TextField(
+                    controller: titleCtrl,
+                    decoration: const InputDecoration(
+                      hintText: 'Tên sản phẩm',
+                      filled: true,
+                    ),
+                  ),
 
-                  // CREATE EXPENSE
-                  // if (editItem!.linkedExpenseId == null)
-                  //   SizedBox(
-                  //     width: double.infinity,
-                  //     child: OutlinedButton(
-                  //       onPressed: () {
-                  //         Navigator.pop(context);
-                  //         Navigator.push(
-                  //           context,
-                  //           MaterialPageRoute(
-                  //             builder: (_) =>
-                  //           CreateOrEditExpenseScreen(
-                  //             fundId: editItem.fundId,
-                  //             memberRefs: const [], // hoặc lấy từ room nếu bạn có
-                  //           )
+                  const SizedBox(height: 10),
 
-                  //           ),
-                  //         );
-                  //       },
-                  //       child: const Text('Tạo chi tiêu'),
-                  //     ),
-                  //   ),
+                  // ===== NOTE =====
+                  TextField(
+                    controller: noteCtrl,
+                    decoration: const InputDecoration(
+                      hintText: 'Ghi chú (tuỳ chọn)',
+                      filled: true,
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  // ===== FUND DROPDOWN =====
+                  StreamBuilder<List<Fund>>(
+                    stream: fundService.getMyFundsStream(),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) {
+                        return const CircularProgressIndicator();
+                      }
+
+                      final funds = snapshot.data!;
+                      return DropdownButtonFormField<String>(
+                        value: selectedFundId,
+                        hint: const Text('Chọn quỹ'),
+                        items: funds.map((fund) {
+                          return DropdownMenuItem(
+                            value: fund.id,
+                            child: Text(fund.name),
+                          );
+                        }).toList(),
+                        onChanged: (v) {
+                          final fund = funds.firstWhere((f) => f.id == v);
+                          setLocal(() {
+                            selectedFundId = fund.id;
+                            selectedFundName = fund.name;
+                          });
+                        },
+                      );
+                    },
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // ===== ACTION BUTTONS =====
+                  SizedBox(
+                    width: double.infinity,
+                    height: 46,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        final title = titleCtrl.text.trim();
+                        final note = noteCtrl.text.trim();
+
+                        if (title.isEmpty ||
+                            selectedFundId == null ||
+                            selectedFundName == null) {
+                          return;
+                        }
+
+                        if (isEdit) {
+                          await roomRef
+                              .collection('shopping_items')
+                              .doc(editItem!.id)
+                              .update({
+                                'title': title,
+                                'note': note.isEmpty ? null : note,
+                                'fundId': selectedFundId,
+                                'fundName': selectedFundName,
+                                'updatedAt': FieldValue.serverTimestamp(),
+                              });
+                        } else {
+                          await shoppingService.addItem(
+                            roomRef: roomRef,
+                            title: title,
+                            note: note,
+                            fundId: selectedFundId!,
+                            fundName: selectedFundName!,
+                          );
+                        }
+
+                        Navigator.pop(context);
+                      },
+                      child: Text(isEdit ? 'Lưu' : 'Thêm'),
+                    ),
+                  ),
+
+                  // ===== DELETE + CREATE EXPENSE =====
+                  if (isEdit) ...[
+                    const SizedBox(height: 12),
+
+                    // DELETE
+
+                    // CREATE EXPENSE
+                    if (editItem.linkedExpenseId == null)
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: () {
+                            Navigator.pop(context); // Đóng BottomSheet mua sắm
+
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => CreateOrEditExpenseScreen(
+                                  fundId: editItem.fundId,
+                                  initialTitle:
+                                      editItem.title, // Dán tên đồ vào
+                                  shoppingItemId: editItem.id,
+                                  roomRef: roomRef,
+                                ),
+                              ),
+                            );
+                          },
+                          child: const Text('Tạo chi tiêu'),
+                        ),
+                      ),
+                  ],
                 ],
-              ],
-            );
-          },
-        ),
-      );
-    },
-  );
-}
-
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
 }
