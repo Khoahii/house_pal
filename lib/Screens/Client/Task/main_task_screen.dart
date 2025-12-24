@@ -6,7 +6,6 @@ import 'package:house_pal/models/app_user.dart';
 import 'package:house_pal/Screens/Client/Task/ranking_screen.dart';
 import 'package:house_pal/Screens/Client/Task/task_detail_screen.dart';
 import 'package:house_pal/models/room.dart';
-import 'package:house_pal/models/task_model.dart';
 
 void main() {
   runApp(const MainTaskScreen());
