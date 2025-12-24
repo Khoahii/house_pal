@@ -1,70 +1,47 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/shopping.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../models/shopping_item.dart';
 
 class ShoppingService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final _firestore = FirebaseFirestore.instance;
+  final _uid = FirebaseAuth.instance.currentUser!.uid;
 
-  /// =======================
-  /// STREAM LIST BY ROOM
-  /// =======================
-  Stream<QuerySnapshot<Map<String, dynamic>>> getByRoom() {
-    return FirebaseFirestore.instance
-      .collection('shoppings')
-      // .where('roomId', isEqualTo: roomRef)
-      // .orderBy('createdAt', descending: true) // ✅ CHỈ 1 orderBy
-      .snapshots();
+  Stream<List<ShoppingItem>> shoppingStream(DocumentReference roomRef) {
+    return roomRef
+        .collection('shopping_items')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snap) =>
+            snap.docs.map((d) => ShoppingItem.fromFirestore(d)).toList());
   }
 
-  /// =======================
-  /// ADD ITEM
-  /// =======================
   Future<void> addItem({
-    // required DocumentReference roomRef,
-    required String name,
-    required String assignedName,
-  }) async {
-    await _firestore.collection('shoppings').add({
-      // 'roomId': roomRef,
-      'name': name,
-      'assignedTo': {
-        'name': assignedName,
-      },
-      'purchased': false,
+    required DocumentReference roomRef,
+    required String title,
+    String? note,
+    required String fundId,
+    required String fundName,
+  }) {
+    return roomRef.collection('shopping_items').add({
+      'title': title,
+      'note': (note == null || note.trim().isEmpty) ? null : note.trim(),
+      'fundId': fundId,
+      'fundName': fundName,
+      'linkedExpenseId': null,
+      'createdBy': _firestore.collection('users').doc(_uid),
       'createdAt': FieldValue.serverTimestamp(),
-      'purchasedAt': null,
+      'updatedAt': FieldValue.serverTimestamp(),
     });
   }
 
-  /// =======================
-  /// TOGGLE PURCHASED
-  /// =======================
-  Future<void> togglePurchased(String itemId, bool purchased) async {
-    await _firestore.collection('shoppings').doc(itemId).update({
-      'purchased': purchased,
-      'purchasedAt': purchased ? FieldValue.serverTimestamp() : null,
-    });
-  }
-
-  /// =======================
-  /// DELETE ITEM
-  /// =======================
-  Future<void> deleteItem(String itemId) async {
-    await _firestore.collection('shoppings').doc(itemId).delete();
-  }
-
-  /// =======================
-  /// UPDATE ITEM
-  /// =======================
-  Future<void> updateItem({
+  Future<void> linkExpense({
+    required DocumentReference roomRef,
     required String itemId,
-    required String name,
-    required String assignedName,
-  }) async {
-    await _firestore.collection('shoppings').doc(itemId).update({
-      'name': name,
-      'assignedTo': {
-        'name': assignedName,
-      },
+    required String expenseId,
+  }) {
+    return roomRef.collection('shopping_items').doc(itemId).update({
+      'linkedExpenseId': expenseId,
+      'updatedAt': FieldValue.serverTimestamp(),
     });
   }
 }
