@@ -27,7 +27,7 @@ class ExpenseService {
   }
 
   // =========================
-  // CREATE EXPENSE
+  // CREATE EXPENSE (Updated)
   // =========================
   Future<String> createExpense({
     required String fundId,
@@ -39,94 +39,86 @@ class ExpenseService {
     required String iconEmoji,
     required String splitType,
     required Map<String, int> splitDetail,
+    String? shoppingItemId, // Nhận từ ShoppingTab
+    DocumentReference? roomRef, // Nhận từ ShoppingTab
   }) async {
     final fundRef = _firestore.collection('funds').doc(fundId);
     final expenseRef = fundRef.collection('expenses').doc();
     final uid = FirebaseAuth.instance.currentUser!.uid;
 
-    bool hasError = false;
-    String? errorMessage;
-
     try {
       await _firestore.runTransaction((transaction) async {
-        try {
-          final Map<String, DocumentSnapshot<Map<String, dynamic>>>
-          memberSnaps = {};
+        // 1. ĐỌC DỮ LIỆU CẦN THIẾT (READS)
+        final Map<String, DocumentSnapshot> memberSnaps = {};
+        for (final userId in splitDetail.keys) {
+          final ref = _firestore
+              .collection('fund_members')
+              .doc('${fundId}_$userId');
+          memberSnaps[userId] = await transaction.get(ref);
+        }
 
-          // 🔹 READ ALL
-          for (final userId in splitDetail.keys) {
-            final ref = _firestore
-                .collection('fund_members')
-                .doc('${fundId}_$userId');
-            memberSnaps[userId] = await transaction.get(ref);
-          }
+        // 2. TẠO CHI TIÊU (WRITES)
+        transaction.set(expenseRef, {
+          'title': title,
+          'amount': amount,
+          'paidBy': paidBy,
+          'date': Timestamp.fromDate(date),
+          'iconId': iconId,
+          'iconEmoji': iconEmoji,
+          'splitType': splitType,
+          'splitDetail': splitDetail,
+          'createdBy': uid,
+          'createdAt': FieldValue.serverTimestamp(),
+          'shoppingItemId': shoppingItemId, // Lưu vết lại
+        });
 
-          // 🔹 CREATE EXPENSE
-          transaction.set(expenseRef, {
-            'title': title,
-            'amount': amount,
-            'paidBy': paidBy,
-            'date': Timestamp.fromDate(date),
-            'iconId': iconId,
-            'iconEmoji': iconEmoji,
-            'splitType': splitType,
-            'splitDetail': splitDetail,
-            'createdBy': uid,
-            'createdAt': FieldValue.serverTimestamp(),
-          });
-
-          // 🔹 UPDATE FUND
-          transaction.update(fundRef, {
-            'totalSpent': FieldValue.increment(amount),
+        // 3. CẬP NHẬT SHOPPING ITEM (NẾU CÓ)
+        // Đây chính là nơi thay thế cho hàm linkExpense của bạn
+        if (shoppingItemId != null && roomRef != null) {
+          final shopItemRef = roomRef
+              .collection('shopping_items')
+              .doc(shoppingItemId);
+          transaction.update(shopItemRef, {
+            'linkedExpenseId': expenseRef.id, // Gắn ID chi tiêu vừa tạo vào
             'updatedAt': FieldValue.serverTimestamp(),
           });
+        }
 
-          // 🔹 UPDATE FUND MEMBERS
-          for (final entry in splitDetail.entries) {
-            final userId = entry.key;
-            final owed = entry.value;
-            final snap = memberSnaps[userId]!;
+        // 4. CẬP NHẬT TỔNG CHI CỦA QUỸ
+        transaction.update(fundRef, {
+          'totalSpent': FieldValue.increment(amount),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
 
-            int totalPaid = 0;
-            int totalOwed = 0;
+        // 5. CẬP NHẬT SỐ DƯ TỪNG THÀNH VIÊN
+        for (final entry in splitDetail.entries) {
+          final userId = entry.key;
+          final owed = entry.value;
+          final snap = memberSnaps[userId]!;
 
-            if (snap.exists) {
-              final data = snap.data()!;
-              totalPaid = (data['totalPaid'] ?? 0);
-              totalOwed = (data['totalOwed'] ?? 0);
-            }
+          int totalPaid = snap.exists ? (snap.get('totalPaid') ?? 0) : 0;
+          int totalOwed = snap.exists ? (snap.get('totalOwed') ?? 0) : 0;
 
-            if (paidBy.id == userId) {
-              totalPaid += amount;
-            }
-            totalOwed += owed;
+          if (paidBy.id == userId) totalPaid += amount;
+          totalOwed += owed;
 
-            final ref = _firestore
-                .collection('fund_members')
-                .doc('${fundId}_$userId');
-
-            transaction.update(ref, {
+          transaction.set(
+            _firestore.collection('fund_members').doc('${fundId}_$userId'),
+            {
               'totalPaid': totalPaid,
               'totalOwed': totalOwed,
               'balance': totalPaid - totalOwed,
               'lastUpdated': FieldValue.serverTimestamp(),
-            });
-          }
-        } catch (e, stack) {
-          debugPrint('🔥 createExpense TRANSACTION ERROR: $e');
-          debugPrint(stack.toString());
-          hasError = true;
-          errorMessage = 'Lỗi xử lý tạo chi tiêu';
-          return;
+            },
+            SetOptions(merge: true),
+          );
         }
       });
 
-      if (hasError) throw Exception(errorMessage);
       return expenseRef.id;
-    } catch (e, stack) {
-      debugPrint('🔥 createExpense FAILED: $e');
-      debugPrint(stack.toString());
-      throw Exception('Không thể tạo chi tiêu');
+    } catch (e) {
+      debugPrint('🔥 Error in createExpense: $e');
+      throw Exception('Lỗi khi tạo chi tiêu và liên kết mua sắm');
     }
   }
 
