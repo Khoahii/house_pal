@@ -130,4 +130,15 @@ class AuthService {
       return false;
     }
   }
+
+  Future<AppUser?> getAppUserData(String uid) async {
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .get();
+    if (doc.exists) {
+      return AppUser.fromFirestore(doc);
+    }
+    return null;
+  }
 }
