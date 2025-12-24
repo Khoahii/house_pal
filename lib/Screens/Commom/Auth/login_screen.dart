@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:house_pal/Screens/Commom/Auth/register_screen.dart';
-import 'package:house_pal/Screens/Commom/MainPage/main_screen.dart';
-import 'package:house_pal/Screens/Commom/Rooms/join_room_screen.dart';
 import 'package:house_pal/services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -35,37 +33,18 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Đăng nhập
-      final appUser = await _auth.signInWithEmailPassword(
+      // Chỉ cần gọi đăng nhập, StreamBuilder ở AuthWrapper sẽ lo phần còn lại
+      await _auth.signInWithEmailPassword(
         _emailController.text.trim(),
         _passwordController.text,
       );
 
-      if (appUser == null || !mounted) return;
-
-      // Kiểm tra user đã có phòng chưa
-      final hasRoom = await _auth.userHasRoom(appUser.uid);
-
-      if (!mounted) return;
-
-      if (hasRoom) {
-        // ĐÃ CÓ PHÒNG → vào thẳng app chính
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const MainScreen()),
-          (route) => false,
-        );
-      } else {
-        // CHƯA CÓ PHÒNG → đi Join Room
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => JoinRoomScreen()),
-          (route) => false,
-        );
-      }
+      // Không dùng Navigator ở đây nữa!
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.toString())));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Đăng nhập thất bại: ${e.toString()}")),
+      );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
