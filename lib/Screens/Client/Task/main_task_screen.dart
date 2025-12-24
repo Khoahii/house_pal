@@ -4,9 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:house_pal/models/app_user.dart';
 import 'package:house_pal/Screens/Client/Task/ranking_screen.dart';
-import 'package:house_pal/Screens/Client/Task/task_detail_screen.dart ';
+import 'package:house_pal/Screens/Client/Task/task_detail_screen.dart';
 import 'package:house_pal/models/room.dart';
-import 'package:house_pal/models/task_model.dart'; // Đảm bảo đường dẫn import đúng với project của bạn
+import 'package:house_pal/models/task_model.dart';
 
 void main() {
   runApp(const MainTaskScreen());
@@ -265,7 +265,9 @@ class _MainTaskState extends State<MainTask> {
                                 itemCount: tasks.length,
                                 separatorBuilder: (context, index) => const SizedBox(height: 16),
                                 itemBuilder: (context, index) {
-                                  final data = tasks[index].data() as Map<String, dynamic>;
+                                  final taskDoc = tasks[index]; // Lưu DocumentSnapshot
+                                  final data = taskDoc.data() as Map<String, dynamic>;
+                                  
                                   // Xử lý màu sắc dựa trên độ khó
                                   final difficulty = data['difficulty'] ?? 'easy';
                                   Color diffColor;
@@ -286,29 +288,23 @@ class _MainTaskState extends State<MainTask> {
                                     diffLabel = 'Dễ';
                                   }
 
-                                  // Xác định Reference của người được giao việc
-                                  DocumentReference? assigneeRef;
-                                  if (data['assignMode'] == 'manual') {
-                                    assigneeRef = data['manualAssignedTo'] as DocumentReference?;
-                                  } else {
-                                    // Xử lý chế độ xoay vòng (auto)
-                                    final List<dynamic>? rotationOrder = data['rotationOrder'];
-                                    final int rotationIndex = data['rotationIndex'] ?? 0;
-                                    if (rotationOrder != null && rotationOrder.isNotEmpty) {
-                                      // Dùng phép chia lấy dư để đảm bảo index luôn hợp lệ
-                                      final int safeIndex = rotationIndex % rotationOrder.length;
-                                      assigneeRef = rotationOrder[safeIndex] as DocumentReference?;
-                                    }
-                                  }
+                                  // Xác định Reference của người được giao việc (đơn giản)
+                                  final DocumentReference? assigneeRef =
+                                      data['manualAssignedTo'] as DocumentReference?;
 
-                                  // Dùng FutureBuilder để tải thông tin user từ Reference
+                                  // Hiển thị name/avatar
                                   return FutureBuilder<DocumentSnapshot>(
                                     future: assigneeRef?.get(),
                                     builder: (context, userSnapshot) {
-                                      String assigneeName = '...';
-                                      if (userSnapshot.hasData && userSnapshot.data != null && userSnapshot.data!.exists) {
+                                      String assigneeName = 'Chưa phân công';
+                                      String assigneeAvatar = 'https://i.pravatar.cc/150?img=3';
+
+                                      if (userSnapshot.hasData && userSnapshot.data!.exists) {
                                         final userData = userSnapshot.data!.data() as Map<String, dynamic>;
                                         assigneeName = userData['name'] ?? 'Thành viên';
+                                        assigneeAvatar = userData['avatarUrl'] ??
+                                                         userData['avatar'] ??
+                                                         'https://i.pravatar.cc/150?img=3';
                                       }
 
                                       return TaskCardItem(
@@ -319,12 +315,15 @@ class _MainTaskState extends State<MainTask> {
                                         title: data['title'] ?? 'Không tên',
                                         description: data['description'] ?? '',
                                         assignee: assigneeName,
-                                        assigneeAvatar: 'https://placehold.co/32x32',
+                                        assigneeAvatar: assigneeAvatar,
                                         onDetailTap: () {
                                           Navigator.push(
                                             context,
                                             MaterialPageRoute(
-                                              builder: (_) => const TaskDetailScreen(),
+                                              builder: (_) => TaskDetailScreen(
+                                                roomId: currentRoom!.id,
+                                                assignmentId: taskDoc.id,
+                                              ),
                                             ),
                                           );
                                         },

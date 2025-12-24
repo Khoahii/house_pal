@@ -38,19 +38,26 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   }
 
   void _loadRoomMembers() async {
-    List<AppUser> members = [];
-    for (var memberRef in widget.currentRoom.members) {
-      final doc = await memberRef.get();
-      members.add(AppUser.fromFirestore(doc));
-    }
-    setState(() {
-      roomMembers = members;
-    });
+    // Lọc ở tầng dữ liệu: chỉ member, theo thứ tự tham gia
+    final roomRef = FirebaseFirestore.instance
+        .collection('rooms')
+        .doc(widget.currentRoom.id);
+
+    final qs = await FirebaseFirestore.instance
+        .collection('users')
+        .where('roomId', isEqualTo: roomRef)
+        .where('role', whereIn: ['member', 'room_leader'])  // ✅ giữ leader room
+        // .orderBy('createdAt') // nếu gây lỗi index, sort client thay thế
+        .get();
+
+    final members = qs.docs.map((d) => AppUser.fromFirestore(d)).toList();
+    setState(() => roomMembers = members);
   }
 
   void _saveTask() async {
     if (_titleController.text.isEmpty) return;
 
+    // Để TaskService xử lý auto-assign (không tự set rotation ở client)
     final task = Task(
       title: _titleController.text,
       description: _descController.text,
@@ -58,10 +65,9 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
       point: _point,
       frequency: _frequency,
       assignMode: _assignMode,
-      rotationOrder: _assignMode == 'auto' ? widget.currentRoom.members : null,
-      rotationIndex: _assignMode == 'auto' ? 0 : null,
-      manualAssignedTo:
-          _assignMode == 'manual' ? _manualAssignedTo : null,
+      rotationOrder: _assignMode == 'auto' ? null : null, // ✅ để service xử lý
+      rotationIndex: _assignMode == 'auto' ? null : null, // ✅ để service xử lý
+      manualAssignedTo: _assignMode == 'manual' ? _manualAssignedTo : null,
       createdBy: FirebaseFirestore.instance
           .collection('users')
           .doc(widget.currentUser.uid),
@@ -304,46 +310,101 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   }
 
   Widget _buildMemberList() {
-    return Column(
-      children: roomMembers.map((user) {
-        return GestureDetector(
-          onTap: () {
-            setState(() {
-              _assignMode = 'manual';
-              _manualAssignedTo =
-                  FirebaseFirestore.instance.collection('users').doc(user.uid);
-            });
-          },
-          child: _buildMemberItem(
-            user.name,
-            user.name.isNotEmpty ? user.name[0].toUpperCase() : '',
-            Colors.blue,
-          ),
-        );
-      }).toList(),
+  if (roomMembers.isEmpty) {
+    return const Center(
+      child: Text(
+        'Không có thành viên để phân công',
+        style: TextStyle(color: Colors.grey),
+      ),
     );
   }
 
-  Widget _buildMemberItem(String name, String letter, Color color) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+  return Column(
+    children: roomMembers.map((user) {
+      final userRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid);
+
+      final isSelected =
+          _assignMode == 'manual' && _manualAssignedTo?.id == user.uid;
+
+      return GestureDetector(
+        onTap: () {
+          setState(() {
+            _assignMode = 'manual';
+            _manualAssignedTo = userRef;
+          });
+        },
+        child: _buildMemberItem(
+          name: user.name,
+          avatarUrl: user.avatarUrl,  // ✅ THÊM: truyền avatar
+          isSelected: isSelected,
+        ),
+      );
+    }).toList(),
+  );
+}
+
+// ✅ SỬA: Thêm avatarUrl parameter
+Widget _buildMemberItem({
+  required String name,
+  String? avatarUrl,  // ✅ THÊM
+  required bool isSelected,
+}) {
+  return Container(
+    margin: const EdgeInsets.only(bottom: 8),
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: isSelected
+          ? const Color(0xFFE0E7FF)
+          : Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(
+        color: isSelected
+            ? const Color(0xFF4F46E5)
+            : Colors.grey.shade300,
+        width: isSelected ? 2 : 1,
       ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            backgroundColor: color,
-            child: Text(letter, style: const TextStyle(color: Colors.white)),
+    ),
+    child: Row(
+      children: [
+        // ✅ SỬA: Hiển thị avatar hoặc letter
+        avatarUrl != null && avatarUrl.isNotEmpty
+            ? CircleAvatar(
+                radius: 20,
+                backgroundImage: NetworkImage(avatarUrl),
+                backgroundColor: Colors.grey[300],
+              )
+            : CircleAvatar(
+                backgroundColor: isSelected
+                    ? const Color(0xFF4F46E5)
+                    : Colors.blue,
+                child: Text(
+                  name.isNotEmpty ? name[0].toUpperCase() : '?',
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            name,
+            style: TextStyle(
+              fontWeight: FontWeight.w500,
+              color: isSelected
+                  ? const Color(0xFF4F46E5)
+                  : Colors.black,
+            ),
           ),
-          const SizedBox(width: 12),
-          Text(name, style: const TextStyle(fontWeight: FontWeight.w500)),
-        ],
-      ),
-    );
-  }
+        ),
+        if (isSelected)
+          const Icon(
+            Icons.check_circle,
+            color: Color(0xFF4F46E5),
+          ),
+      ],
+    ),
+  );
+}
 
   Widget _buildSaveButton() {
     return SizedBox(
