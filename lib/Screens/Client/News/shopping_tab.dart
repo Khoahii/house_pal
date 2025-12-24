@@ -42,7 +42,7 @@ class ShoppingTab extends StatelessWidget {
   Widget _addButton(BuildContext context) {
     return ElevatedButton(
       onPressed: () => _openAddOrEditSheet(context),
-      child: const Text("+ Thêm vào danh sách"),
+      child: const Text("+ Thêm mua sắm"),
     );
   }
 
