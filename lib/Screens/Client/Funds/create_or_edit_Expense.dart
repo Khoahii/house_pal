@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:house_pal/models/app_user.dart';
 import 'package:house_pal/models/expense.dart';
 import 'package:house_pal/services/expense_service.dart';
+import 'package:house_pal/services/snack_bar_service.dart';
 import 'package:house_pal/ultils/fund/fund_category.dart';
 import 'package:house_pal/ultils/fund/money_fomat.dart';
 import 'package:intl/intl.dart';
@@ -234,6 +235,10 @@ class _CreateOrEditExpenseScreenState extends State<CreateOrEditExpenseScreen> {
           splitType: _splitType,
           splitDetail: result,
         );
+
+        if (mounted) {
+          SnackBarService.showSuccess(context, "Cập nhật chi tiêu thành công!");
+        }
       } else {
         await _expenseService.createExpense(
           fundId: widget.fundId,
@@ -246,9 +251,17 @@ class _CreateOrEditExpenseScreenState extends State<CreateOrEditExpenseScreen> {
           splitType: _splitType,
           splitDetail: result,
         );
+
+        if (mounted) {
+          SnackBarService.showSuccess(context, "Tạo chi tiêu thành công!");
+        }
       }
 
       if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) {
+        SnackBarService.showError(context, "Đã xảy ra lỗi: ${e.toString()}");
+      }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
