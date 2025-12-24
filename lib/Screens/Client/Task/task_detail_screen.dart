@@ -2,15 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:house_pal/providers/auth_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:house_pal/models/task_model.dart';
-import 'package:house_pal/services/completion_service.dart';  // ✅ Thêm import
+import 'package:house_pal/services/completion_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:house_pal/models/app_user.dart';
+
 class TaskDetailScreen extends StatefulWidget {
   final String roomId;
   final String assignmentId;
 
   const TaskDetailScreen({
-    super.key,  // ✅ THÊM dòng này
+    super.key,
     required this.roomId,
     required this.assignmentId,
   });
@@ -24,121 +25,105 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final CompletionService _completionService = CompletionService();
 
-  late final Future<Task?> _taskFuture = _loadData(); // cache future
   bool _isLoading = false;
+  bool _hasPopped = false;
+  bool _justCompleted = false;
+
+  // ✅ THÊM: Reset flags mỗi lần vào màn hình
+  @override
+  void initState() {
+    super.initState();
+    _hasPopped = false;
+    _justCompleted = false;
+  }
 
   static const _freqMap = {
     'daily': 'Hàng ngày',
     'weekly': 'Hàng tuần',
     'monthly': 'Hàng tháng',
   };
+  
   static const _diffMap = {
     'easy': 'Dễ',
     'medium': 'Trung bình',
     'hard': 'Khó',
   };
 
-  // ✅ SỬA: Lấy Task trực tiếp từ tasks collection
-  Future<Task?> _loadData() async {
-    try {
-      final taskSnap = await _firestore
-          .collection('rooms')
-          .doc(widget.roomId)
-          .collection('tasks') // ✅ Sửa từ 'assignments' thành 'tasks'
-          .doc(widget.assignmentId)
-          .get();
-
-      if (!taskSnap.exists) {
-        print('Task không tồn tại');
-        return null;
-      }
-
-      return Task.fromMap(taskSnap.id, taskSnap.data() as Map<String, dynamic>);
-    } catch (e) {
-      print('Error loading task: $e');
-      return null;
-    }
-  }
-
-  Future<bool?> _showDeleteConfirm() async {
-    return showDialog<bool>(
+  // ✅ OPTIMIZATION: Tách riêng dialog để tránh rebuild
+  Future<bool> _showDeleteConfirm() async {
+    final result = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Xác nhận xóa'),
-          content: const SingleChildScrollView(
-            child: ListBody(
-              children: <Widget>[
-                Text('Bạn có chắc chắn muốn xóa công việc này không?'),
-              ],
-            ),
+      builder: (context) => AlertDialog(
+        title: const Text('Xác nhận xóa'),
+        content: const Text('Bạn có chắc chắn muốn xóa công việc này không?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
           ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Hủy'),
-              onPressed: () {
-                Navigator.of(context).pop(false);
-              },
-            ),
-            TextButton(
-              child: const Text('Xóa', style: TextStyle(color: Colors.red)),
-              onPressed: () {
-                Navigator.of(context).pop(true);
-              },
-            ),
-          ],
-        );
-      },
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Xóa', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  void _handleEdit(Task task) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Chức năng chỉnh sửa đang được phát triển'),
+        duration: Duration(seconds: 2),
+      ),
     );
   }
 
   Future<void> _handleDelete() async {
-    final shouldDelete = await _showDeleteConfirm();
-    if (shouldDelete == true) {
-      setState(() => _isLoading = true);
-      try {
-        // ✅ SỬA: Xóa từ tasks collection
-        await _firestore
-            .collection('rooms')
-            .doc(widget.roomId)
-            .collection('tasks') // ✅ Sửa từ 'assignments' thành 'tasks'
-            .doc(widget.assignmentId)
-            .delete();
+    if (!await _showDeleteConfirm()) return;
 
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Đã xóa công việc thành công')),
-          );
-          Navigator.of(context).pop();
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Lỗi khi xóa: $e')),
-          );
-        }
-      } finally {
-        if (mounted) {
-          setState(() => _isLoading = false);
-        }
+    setState(() => _isLoading = true);
+    
+    try {
+      await _firestore
+          .collection('rooms')
+          .doc(widget.roomId)
+          .collection('tasks')
+          .doc(widget.assignmentId)
+          .delete();
+
+      if (!mounted) return;
+
+      _showSnackBar('Đã xóa công việc thành công');
+
+      if (!_hasPopped) {
+        _hasPopped = true;
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        _showSnackBar('Lỗi khi xóa: $e', isError: true);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
     }
   }
 
-  // ✅ THÊM: Hàm hoàn thành task
   Future<void> _handleCompleteTask(Task task) async {
     final authProvider = Provider.of<MyAuthProvider>(context, listen: false);
     final currentUser = authProvider.currentUser;
 
     if (currentUser == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng đăng nhập')),
-      );
+      _showSnackBar('Vui lòng đăng nhập', isError: true);
       return;
     }
 
     setState(() => _isLoading = true);
+    
     try {
       await _completionService.completeTask(
         roomId: widget.roomId,
@@ -146,30 +131,51 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         currentUser: currentUser,
       );
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Hoàn thành thành công! +${task.point} điểm'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-        Navigator.of(context).pop(); // bỏ delay
+      if (!mounted) return;
+
+      // ✅ Chỉ set khi thành công
+      setState(() {
+        _justCompleted = true;
+      });
+
+      _showSnackBar(
+        'Hoàn thành thành công! +${task.point} điểm',
+        isSuccess: true,
+      );
+
+      // Manual task → pop ngay
+      if (task.assignMode == 'manual' && !_hasPopped) {
+        _hasPopped = true;
+        Navigator.of(context).pop();
       }
+      // Auto task → để StreamBuilder tự pop khi detect không còn được assign
+      
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showSnackBar('Lỗi: $e', isError: true);
       }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  // ✅ OPTIMIZATION: Helper method cho SnackBar
+  void _showSnackBar(String message, {bool isError = false, bool isSuccess = false}) {
+    if (!mounted) return;
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError 
+            ? Colors.red 
+            : isSuccess 
+                ? Colors.green 
+                : null,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   String _getFrequencyText(String frequency) =>
@@ -181,16 +187,26 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   bool _isCurrentUserAssignee(Task task, AppUser? currentUser) {
     if (currentUser == null) return false;
 
-    // Ưu tiên manualAssignedTo
-    DocumentReference? assigneeRef = task.manualAssignedTo;
-
-    // Fallback rotation nếu thiếu
-    if (assigneeRef == null && task.rotationOrder != null && task.rotationOrder!.isNotEmpty) {
-      final idx = (task.rotationIndex ?? 0) % task.rotationOrder!.length;
-      assigneeRef = task.rotationOrder![idx];
+    DocumentReference? assigneeRef;
+    
+    if (task.assignMode == 'manual') {
+      assigneeRef = task.manualAssignedTo;
+    } else if (task.assignMode == 'auto') {
+      if (task.rotationOrder != null && task.rotationOrder!.isNotEmpty) {
+        final idx = (task.rotationIndex ?? 0) % task.rotationOrder!.length;
+        assigneeRef = task.rotationOrder![idx];
+      }
     }
 
-    return assigneeRef != null && assigneeRef.id == currentUser.uid;
+    return assigneeRef?.id == currentUser.uid;
+  }
+
+  // ✅ OPTIMIZATION: Tách logic pop để tránh duplicate code
+  void _popIfNeeded() {
+    if (mounted && !_hasPopped) {
+      _hasPopped = true;
+      Navigator.of(context).pop();
+    }
   }
 
   @override
@@ -200,23 +216,42 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF6F7FB),
-      body: FutureBuilder<Task?>(
-        future: _taskFuture, // dùng future đã cache
+      body: StreamBuilder<DocumentSnapshot>(
+        stream: _firestore
+            .collection('rooms')
+            .doc(widget.roomId)
+            .collection('tasks')
+            .doc(widget.assignmentId)
+            .snapshots(),
         builder: (context, snapshot) {
+          // Loading state
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
+          // Error state
           if (snapshot.hasError) {
             return Center(child: Text('Lỗi: ${snapshot.error}'));
           }
 
-          final task = snapshot.data;
-          if (task == null) {
-            return const Center(child: Text('Không tìm thấy công việc'));
+          // Task đã bị xóa (manual task)
+          if (!snapshot.hasData || !snapshot.data!.exists) {
+            WidgetsBinding.instance.addPostFrameCallback((_) => _popIfNeeded());
+            return const SizedBox.shrink();
           }
 
-          final canComplete = _isCurrentUserAssignee(task, currentUser); // ✅
+          final task = Task.fromMap(
+            snapshot.data!.id,
+            snapshot.data!.data() as Map<String, dynamic>,
+          );
+
+          final canComplete = _isCurrentUserAssignee(task, currentUser);
+
+          // ✅ Auto task completed → user không còn được assign → pop
+          if (task.assignMode == 'auto' && _justCompleted && !canComplete) {
+            WidgetsBinding.instance.addPostFrameCallback((_) => _popIfNeeded());
+            return const SizedBox.shrink();
+          }
 
           return Column(
             children: [
@@ -235,7 +270,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   ),
                 ),
               ),
-              if (canComplete) _bottomButton(task), // ✅ Chỉ hiển thị khi là người được giao
+              if (canComplete) _bottomButton(task),
             ],
           );
         },
@@ -243,7 +278,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
   }
 
-  Widget _buildAppBar(dynamic currentUser, Task task) {
+  Widget _buildAppBar(AppUser? currentUser, Task task) {
     return AppBar(
       backgroundColor: primaryColor,
       elevation: 0,
@@ -259,46 +294,94 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         ),
       ),
       actions: [
-        if (currentUser != null && currentUser.canCreateTask)
+        if (currentUser?.canCreateTask ?? false)
           _isLoading
-              ? const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
+              ? const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
                   ),
                 )
-              : IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.white),
-                  onPressed: _handleDelete,
+              : PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert, color: Colors.white),
+                  offset: const Offset(0, 45),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  onSelected: (value) {
+                    if (value == 'edit') {
+                      _handleEdit(task);
+                    } else if (value == 'delete') {
+                      _handleDelete();
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    _buildPopupMenuItem(
+                      value: 'edit',
+                      icon: Icons.edit,
+                      label: 'Chỉnh sửa',
+                      color: primaryColor,
+                    ),
+                    _buildPopupMenuItem(
+                      value: 'delete',
+                      icon: Icons.delete,
+                      label: 'Xóa',
+                      color: Colors.red,
+                    ),
+                  ],
                 ),
       ],
     );
   }
 
-  // ✅ SỬA: Nhận Task object thay vì DocumentReference
-  Widget _assigneeCard(Task task) {
-    // Ưu tiên manualAssignedTo
-    DocumentReference? assigneeRef = task.manualAssignedTo;
+  // ✅ OPTIMIZATION: Extract popup menu item
+  PopupMenuItem<String> _buildPopupMenuItem({
+    required String value,
+    required IconData icon,
+    required String label,
+    required Color color,
+  }) {
+    return PopupMenuItem(
+      value: value,
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 12),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: color == Colors.red ? Colors.red : null,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-    // Fallback rotation nếu thiếu
-    if (assigneeRef == null && task.rotationOrder != null && task.rotationOrder!.isNotEmpty) {
-      final int idx = task.rotationIndex ?? 0;
-      final int safeIndex = idx % task.rotationOrder!.length;
-      assigneeRef = task.rotationOrder![safeIndex];
+  Widget _assigneeCard(Task task) {
+    DocumentReference? assigneeRef;
+
+    if (task.assignMode == 'manual') {
+      assigneeRef = task.manualAssignedTo;
+    } else if (task.assignMode == 'auto') {
+      if (task.rotationOrder != null && task.rotationOrder!.isNotEmpty) {
+        final idx = (task.rotationIndex ?? 0) % task.rotationOrder!.length;
+        assigneeRef = task.rotationOrder![idx];
+      }
     }
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: _cardDecoration(),
       child: FutureBuilder<DocumentSnapshot>(
-        future: assigneeRef != null ? assigneeRef.get() : null,
+        future: assigneeRef?.get(),
         builder: (context, snapshot) {
           String userName = 'Chưa phân công';
           String? avatarUrl;
@@ -306,8 +389,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           if (snapshot.hasData && snapshot.data!.exists) {
             final userData = snapshot.data!.data() as Map<String, dynamic>?;
             if (userData != null) {
-              userName = userData['name'] ?? userData['fullName'] ?? 'Không có tên';
-              avatarUrl = userData['avatarUrl'] ?? userData['avatar'] ?? userData['photoURL'];
+              userName = userData['name'] ?? 
+                         userData['fullName'] ?? 
+                         'Không có tên';
+              avatarUrl = userData['avatarUrl'] ?? 
+                         userData['avatar'] ?? 
+                         userData['photoURL'];
             }
           }
 
@@ -316,25 +403,48 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               CircleAvatar(
                 radius: 24,
                 backgroundColor: Colors.grey[200],
-                backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty)
-                    ? NetworkImage(avatarUrl)
-                    : const NetworkImage('https://i.pravatar.cc/150?img=3'),
+                // ✅ OPTIMIZATION: Null-safe avatar
+                backgroundImage: (avatarUrl?.isNotEmpty ?? false)
+                    ? NetworkImage(avatarUrl!)
+                    : null,
+                child: (avatarUrl?.isEmpty ?? true)
+                    ? Icon(Icons.person, color: Colors.grey[400])
+                    : null,
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Phân công cho', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                    Text(userName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    const Text(
+                      'Phân công cho',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                    Text(
+                      userName,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ],
                 ),
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  const Text('Điểm thưởng', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  Text('${task.point} ⭐', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.orange)),
+                  const Text(
+                    'Điểm thưởng',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                  Text(
+                    '${task.point} ⭐',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange,
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -366,7 +476,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             task.description.isNotEmpty
                 ? task.description
                 : 'Không có mô tả',
-            style: const TextStyle(color: Colors.black87),
+            style: TextStyle(
+              color: task.description.isNotEmpty 
+                  ? Colors.black87 
+                  : Colors.grey,
+            ),
           ),
         ],
       ),
@@ -432,44 +546,61 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           ),
           child: Text(
             value,
-            style: TextStyle(color: badgeColor, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: badgeColor,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
       ],
     );
   }
 
-  // ✅ SỬA: _bottomButton nhận task parameter
   Widget _bottomButton(Task task) {
-    final disabled = _isLoading;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: const BoxDecoration(
         color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, -2))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 8,
+            offset: Offset(0, -2),
+          ),
+        ],
       ),
       child: SizedBox(
         width: double.infinity,
         height: 48,
-        child: disabled
+        child: _isLoading
             ? const Center(
                 child: SizedBox(
                   width: 24,
                   height: 24,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF4F46E5)),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Color(0xFF4F46E5),
+                    ),
                   ),
                 ),
               )
             : ElevatedButton.icon(
-                onPressed: disabled ? null : () => _handleCompleteTask(task),
+                onPressed: () => _handleCompleteTask(task),
                 icon: const Icon(Icons.check_circle_outline),
-                label: const Text('Hoàn Thành Ngay', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                label: const Text(
+                  'Hoàn Thành Ngay',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryColor,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
       ),
@@ -481,7 +612,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       color: Colors.white,
       borderRadius: BorderRadius.circular(16),
       boxShadow: const [
-        BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 4)),
+        BoxShadow(
+          color: Colors.black12,
+          blurRadius: 8,
+          offset: Offset(0, 4),
+        ),
       ],
     );
   }

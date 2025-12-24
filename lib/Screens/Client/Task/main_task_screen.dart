@@ -37,6 +37,7 @@ class _MainTaskState extends State<MainTask> {
   AppUser? currentUser;
   Room? currentRoom;
   bool isLoadingUser = true;
+  String _filterType = 'my_tasks'; // 'my_tasks' hoặc 'all_tasks'
 
   @override
   void initState() {
@@ -70,6 +71,44 @@ class _MainTaskState extends State<MainTask> {
       }
     setState(() => isLoadingUser = false);
   }
+
+  Widget _buildPopupMenuItem({
+    required IconData icon,
+    required String title,
+    required bool isSelected,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            color: isSelected ? const Color(0xFF4F46E5) : const Color(0xFF6B7280),
+            size: 20,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: isSelected ? const Color(0xFF4F46E5) : const Color(0xFF374151),
+              ),
+            ),
+          ),
+          if (isSelected)
+            const Icon(
+              Icons.check,
+              color: Color(0xFF4F46E5),
+              size: 20,
+            ),
+        ],
+      ),
+    );
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -118,7 +157,7 @@ class _MainTaskState extends State<MainTask> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Color(0xFF4F46E5), Color(0xFF9333EA)],
+                  colors: [Color(0xFF4F46E5), Color(0xFF6366F1)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -163,7 +202,7 @@ class _MainTaskState extends State<MainTask> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 40),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: const [
@@ -191,13 +230,77 @@ class _MainTaskState extends State<MainTask> {
             // Tiêu đề danh sách
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
-                Text(
+              children: [
+                const Text(
                   'Danh Sách Việc',
                   style: TextStyle(
                     color: Color(0xFF1F2937),
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
+                  ),
+                ),
+                PopupMenuButton<String>(
+                  offset: const Offset(0, 45),
+                  elevation: 8,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  onSelected: (value) {
+                    setState(() => _filterType = value);
+                  },
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: 'my_tasks',
+                      child: _buildPopupMenuItem(
+                        icon: Icons.person_outline,
+                        title: 'Việc của tôi',
+                        isSelected: _filterType == 'my_tasks',
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'all_tasks',
+                      child: _buildPopupMenuItem(
+                        icon: Icons.list_alt,
+                        title: 'Tất cả việc',
+                        isSelected: _filterType == 'all_tasks',
+                      ),
+                    ),
+                  ],
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEEF2FF),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: const Color(0xFF4F46E5).withOpacity(0.2),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _filterType == 'my_tasks' ? Icons.person_outline : Icons.list_alt,
+                          color: const Color(0xFF4F46E5),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _filterType == 'my_tasks' ? 'Của tôi' : 'Tất cả',
+                          style: const TextStyle(
+                            color: Color(0xFF4F46E5),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.keyboard_arrow_down,
+                          color: Color(0xFF4F46E5),
+                          size: 18,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -227,7 +330,54 @@ class _MainTaskState extends State<MainTask> {
                     );
                   }
 
-                  final tasks = snapshot.data!.docs;
+                  var tasks = snapshot.data!.docs;
+
+                  // Lọc tasks theo filter type
+                  if (_filterType == 'my_tasks' && currentUser != null) {
+                    final currentUserRef = FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(FirebaseAuth.instance.currentUser!.uid);
+                    
+                    tasks = tasks.where((taskDoc) {
+                      final data = taskDoc.data() as Map<String, dynamic>;
+                      final assignMode = data['assignMode'] ?? 'auto';
+                      
+                      DocumentReference? assigneeRef;
+                      
+                      if (assignMode == 'manual') {
+                        assigneeRef = data['manualAssignedTo'] as DocumentReference?;
+                      } else if (assignMode == 'auto') {
+                        // Lấy từ rotationOrder
+                        final rotationOrder = data['rotationOrder'] as List<dynamic>?;
+                        final rotationIndex = data['rotationIndex'] as int?;
+                        
+                        if (rotationOrder != null && rotationOrder.isNotEmpty) {
+                          final safeIndex = (rotationIndex ?? 0) % rotationOrder.length;
+                          assigneeRef = rotationOrder[safeIndex] as DocumentReference;
+                        }
+                      }
+                      
+                      return assigneeRef?.path == currentUserRef.path;
+                    }).toList();
+                  }
+
+                  if (tasks.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(20.0),
+                        child: Text(
+                          _filterType == 'my_tasks' 
+                              ? 'Bạn chưa có công việc nào được phân công.'
+                              : 'Chưa có công việc nào.',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Color(0xFF6B7280),
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    );
+                  }
 
                   return ListView.separated(
                     shrinkWrap: true,
@@ -257,8 +407,22 @@ class _MainTaskState extends State<MainTask> {
                         diffLabel = 'Dễ';
                       }
 
-                      final DocumentReference? assigneeRef =
-                          data['manualAssignedTo'] as DocumentReference?;
+                      final assignMode = data['assignMode'] ?? 'auto';
+                      DocumentReference? assigneeRef;
+
+                      // Xác định assigneeRef dựa vào assignMode
+                      if (assignMode == 'manual') {
+                        assigneeRef = data['manualAssignedTo'] as DocumentReference?;
+                      } else if (assignMode == 'auto') {
+                        // Lấy từ rotationOrder
+                        final rotationOrder = data['rotationOrder'] as List<dynamic>?;
+                        final rotationIndex = data['rotationIndex'] as int?;
+                        
+                        if (rotationOrder != null && rotationOrder.isNotEmpty) {
+                          final safeIndex = (rotationIndex ?? 0) % rotationOrder.length;
+                          assigneeRef = rotationOrder[safeIndex] as DocumentReference;
+                        }
+                      }
 
                       return FutureBuilder<DocumentSnapshot>(
                         future: assigneeRef?.get(),
