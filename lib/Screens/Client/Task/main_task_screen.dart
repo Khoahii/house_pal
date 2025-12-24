@@ -74,7 +74,17 @@ class _MainTaskState extends State<MainTask> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Nút cộng vẫn giữ nguyên
+      appBar: AppBar(
+        title: const Text(
+          "Lịch Việc Nhà",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        centerTitle: false,
+        elevation: 0,
+        backgroundColor: const Color(0xFF4F46E5), // Màu xanh Primary
+        foregroundColor: Colors.white,
+      ),
+
       floatingActionButton: isLoadingUser
           ? null
           : (currentUser != null && currentUser!.canCreateTask && currentRoom != null)
@@ -97,253 +107,204 @@ class _MainTaskState extends State<MainTask> {
             )
           : null,
 
-      body: Stack(
-        children: [
-          // 1. NỀN GRADIENT CỐ ĐỊNH
-          Container(
-            height: 300,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF4F46E5), Color(0xFF9333EA)],
+      // ============ BODY ============
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Bảng xếp hạng
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF4F46E5), Color(0xFF9333EA)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.15),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
               ),
-              borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(32),
-                bottomRight: Radius.circular(32),
-              ),
-            ),
-          ),
-
-          // 2. NỘI DUNG CHIA LÀM 2 PHẦN: CỐ ĐỊNH & CUỘN
-          SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ================= PHẦN CỐ ĐỊNH (KHÔNG CUỘN) =================
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const SizedBox(height: 24),
-
-                      // Header Title
                       const Text(
-                        'Lịch Việc Nhà',
+                        '🏆 Bảng Xếp Hạng',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 24,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-
-                      const SizedBox(height: 24),
-
-                      // Bảng xếp hạng
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Column(
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  '🏆 Bảng Xếp Hạng',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-
-                                InkWell(
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => const RankingScreen(),
-                                      ),
-                                    );
-                                  },
-                                  child: const Text(
-                                    'Xem tất cả',
-                                    style: TextStyle(
-                                      color: Color(0xFFE0E7FF),
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                      InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const RankingScreen(),
                             ),
-
-                            const SizedBox(height: 16),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceAround,
-                              children: const [
-                                LeaderboardItem(
-                                  name: 'Minh',
-                                  image: 'https://placehold.co/48x48',
-                                  isWinner: true,
-                                ),
-                                LeaderboardItem(
-                                  name: 'Hương',
-                                  image: 'https://placehold.co/48x48',
-                                ),
-                                LeaderboardItem(
-                                  name: 'Tuấn',
-                                  image: 'https://placehold.co/48x48',
-                                ),
-                              ],
-                            ),
-                          ],
+                          );
+                        },
+                        child: const Text(
+                          'Xem tất cả',
+                          style: TextStyle(
+                            color: Color(0xFFE0E7FF),
+                            fontSize: 12,
+                          ),
                         ),
                       ),
-
-                      const SizedBox(height: 80),
                     ],
                   ),
-                ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: const [
+                      LeaderboardItem(
+                        name: 'Minh',
+                        image: 'https://placehold.co/48x48',
+                        isWinner: true,
+                      ),
+                      LeaderboardItem(
+                        name: 'Hương',
+                        image: 'https://placehold.co/48x48',
+                      ),
+                      LeaderboardItem(
+                        name: 'Tuấn',
+                        image: 'https://placehold.co/48x48',
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
 
-                // ================= PHẦN CUỘN (SCROLLABLE) =================
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Tiêu đề danh sách
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'Danh Sách Việc',
-                              style: TextStyle(
-                                color: Color(0xFF1F2937),
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            //Nút nagivator đến auto rotate screen
-                                                     ],
-                        ),
+            const SizedBox(height: 32),
 
-                        const SizedBox(height: 24),
-
-                        // Hiển thị danh sách Task từ Firestore
-                        if (currentRoom != null)
-                          StreamBuilder<QuerySnapshot>(
-                            stream: FirebaseFirestore.instance
-                                .collection('rooms')
-                                .doc(currentRoom!.id)
-                                .collection('tasks')
-                                .orderBy('createdAt', descending: true)
-                                .snapshots(),
-                            builder: (context, snapshot) {
-                              if (snapshot.connectionState == ConnectionState.waiting) {
-                                return const Center(child: CircularProgressIndicator());
-                              }
-                              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                                return const Center(
-                                  child: Padding(
-                                    padding: EdgeInsets.all(20.0),
-                                    child: Text("Chưa có công việc nào."),
-                                  ),
-                                );
-                              }
-
-                              final tasks = snapshot.data!.docs;
-
-                              return ListView.separated(
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                itemCount: tasks.length,
-                                separatorBuilder: (context, index) => const SizedBox(height: 16),
-                                itemBuilder: (context, index) {
-                                  final taskDoc = tasks[index]; // Lưu DocumentSnapshot
-                                  final data = taskDoc.data() as Map<String, dynamic>;
-                                  
-                                  // Xử lý màu sắc dựa trên độ khó
-                                  final difficulty = data['difficulty'] ?? 'easy';
-                                  Color diffColor;
-                                  Color diffBg;
-                                  String diffLabel;
-
-                                  if (difficulty == 'hard') {
-                                    diffColor = const Color(0xFFB91C1C);
-                                    diffBg = const Color(0xFFFEE2E2);
-                                    diffLabel = 'Khó';
-                                  } else if (difficulty == 'medium') {
-                                    diffColor = const Color(0xFFA16207);
-                                    diffBg = const Color(0xFFFEF9C3);
-                                    diffLabel = 'Trung bình';
-                                  } else {
-                                    diffColor = const Color(0xFF15803D);
-                                    diffBg = const Color(0xFFDCFCE7);
-                                    diffLabel = 'Dễ';
-                                  }
-
-                                  // Xác định Reference của người được giao việc (đơn giản)
-                                  final DocumentReference? assigneeRef =
-                                      data['manualAssignedTo'] as DocumentReference?;
-
-                                  // Hiển thị name/avatar
-                                  return FutureBuilder<DocumentSnapshot>(
-                                    future: assigneeRef?.get(),
-                                    builder: (context, userSnapshot) {
-                                      String assigneeName = 'Chưa phân công';
-                                      String assigneeAvatar = 'https://i.pravatar.cc/150?img=3';
-
-                                      if (userSnapshot.hasData && userSnapshot.data!.exists) {
-                                        final userData = userSnapshot.data!.data() as Map<String, dynamic>;
-                                        assigneeName = userData['name'] ?? 'Thành viên';
-                                        assigneeAvatar = userData['avatarUrl'] ??
-                                                         userData['avatar'] ??
-                                                         'https://i.pravatar.cc/150?img=3';
-                                      }
-
-                                      return TaskCardItem(
-                                        difficulty: diffLabel,
-                                        difficultyColor: diffColor,
-                                        difficultyBg: diffBg,
-                                        points: '+${data['point'] ?? 0}',
-                                        title: data['title'] ?? 'Không tên',
-                                        description: data['description'] ?? '',
-                                        assignee: assigneeName,
-                                        assigneeAvatar: assigneeAvatar,
-                                        onDetailTap: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) => TaskDetailScreen(
-                                                roomId: currentRoom!.id,
-                                                assignmentId: taskDoc.id,
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      );
-                                    },
-                                  );
-                                },
-                              );
-                            },
-                          ),
-
-                        // Khoảng trống dưới cùng (quan trọng để list cuộn lên hết không bị FAB che)
-                        const SizedBox(height: 100),
-                      ],
-                    ),
+            // Tiêu đề danh sách
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: const [
+                Text(
+                  'Danh Sách Việc',
+                  style: TextStyle(
+                    color: Color(0xFF1F2937),
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
             ),
-          ),
-        ],
+
+            const SizedBox(height: 16),
+
+            // Hiển thị danh sách Task từ Firestore
+            if (currentRoom != null)
+              StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('rooms')
+                    .doc(currentRoom!.id)
+                    .collection('tasks')
+                    .orderBy('createdAt', descending: true)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(20.0),
+                        child: Text("Chưa có công việc nào."),
+                      ),
+                    );
+                  }
+
+                  final tasks = snapshot.data!.docs;
+
+                  return ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: tasks.length,
+                    separatorBuilder: (context, index) => const SizedBox(height: 16),
+                    itemBuilder: (context, index) {
+                      final taskDoc = tasks[index];
+                      final data = taskDoc.data() as Map<String, dynamic>;
+                      
+                      final difficulty = data['difficulty'] ?? 'easy';
+                      Color diffColor;
+                      Color diffBg;
+                      String diffLabel;
+
+                      if (difficulty == 'hard') {
+                        diffColor = const Color(0xFFB91C1C);
+                        diffBg = const Color(0xFFFEE2E2);
+                        diffLabel = 'Khó';
+                      } else if (difficulty == 'medium') {
+                        diffColor = const Color(0xFFA16207);
+                        diffBg = const Color(0xFFFEF9C3);
+                        diffLabel = 'Trung bình';
+                      } else {
+                        diffColor = const Color(0xFF15803D);
+                        diffBg = const Color(0xFFDCFCE7);
+                        diffLabel = 'Dễ';
+                      }
+
+                      final DocumentReference? assigneeRef =
+                          data['manualAssignedTo'] as DocumentReference?;
+
+                      return FutureBuilder<DocumentSnapshot>(
+                        future: assigneeRef?.get(),
+                        builder: (context, userSnapshot) {
+                          String assigneeName = 'Chưa phân công';
+                          String assigneeAvatar = 'https://i.pravatar.cc/150?img=3';
+
+                          if (userSnapshot.hasData && userSnapshot.data!.exists) {
+                            final userData = userSnapshot.data!.data() as Map<String, dynamic>;
+                            assigneeName = userData['name'] ?? 'Thành viên';
+                            assigneeAvatar = userData['avatarUrl'] ??
+                                             userData['avatar'] ??
+                                             'https://i.pravatar.cc/150?img=3';
+                          }
+
+                          return TaskCardItem(
+                            difficulty: diffLabel,
+                            difficultyColor: diffColor,
+                            difficultyBg: diffBg,
+                            points: '+${data['point'] ?? 0}',
+                            title: data['title'] ?? 'Không tên',
+                            description: data['description'] ?? '',
+                            assignee: assigneeName,
+                            assigneeAvatar: assigneeAvatar,
+                            onDetailTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => TaskDetailScreen(
+                                    roomId: currentRoom!.id,
+                                    assignmentId: taskDoc.id,
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
+
+            const SizedBox(height: 100),
+          ],
+        ),
       ),
     );
   }
