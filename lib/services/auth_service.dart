@@ -38,16 +38,12 @@ class AuthService {
   }
 
   // Đăng nhập email/password
-  Future<AppUser?> signInWithEmailPassword(
-    String email,
-    String password,
-  ) async {
+  Future<void> signInWithEmailPassword(String email, String password) async {
     try {
-      UserCredential result = await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-      return await getUserData(result.user!.uid);
+      // Chỉ thực hiện đăng nhập, không đợi lấy data
+      await _auth.signInWithEmailAndPassword(email: email, password: password);
+      // Khi dòng này chạy xong, authStateChanges sẽ phát tín hiệu
+      // và AuthWrapper sẽ tự động bắt lấy.
     } on FirebaseAuthException catch (e) {
       throw e.message ?? "Đăng nhập thất bại";
     }
@@ -129,16 +125,5 @@ class AuthService {
       debugPrint("Error checking user roommmm: $e");
       return false;
     }
-  }
-
-  Future<AppUser?> getAppUserData(String uid) async {
-    final doc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .get();
-    if (doc.exists) {
-      return AppUser.fromFirestore(doc);
-    }
-    return null;
   }
 }

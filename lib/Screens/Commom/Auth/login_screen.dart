@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:house_pal/Screens/Commom/Auth/auth_wrapper.dart';
 import 'package:house_pal/Screens/Commom/Auth/register_screen.dart';
 import 'package:house_pal/services/auth_service.dart';
 
@@ -23,7 +24,11 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _loginWithEmail() async {
-    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+    // Loại bỏ khoảng trắng thừa ở email ngay từ đầu
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Vui lòng nhập đầy đủ thông tin")),
       );
@@ -33,20 +38,30 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Chỉ cần gọi đăng nhập, StreamBuilder ở AuthWrapper sẽ lo phần còn lại
-      await _auth.signInWithEmailPassword(
-        _emailController.text.trim(),
-        _passwordController.text,
-      );
+      // 1. Thực hiện đăng nhập qua AuthService
+      await _auth.signInWithEmailPassword(email, password);
 
-      // Không dùng Navigator ở đây nữa!
+      // Ép ứng dụng quay lại từ đầu cây Widget (AuthWrapper)
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const AuthWrapper()),
+          (route) => false,
+        );
+      }
+
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Đăng nhập thất bại: ${e.toString()}")),
-      );
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+      // 3. THẤT BẠI: Hiện lại nút và báo lỗi
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } finally{
+      setState(() => _isLoading = false);
     }
   }
 
