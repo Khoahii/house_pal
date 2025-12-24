@@ -77,8 +77,9 @@ class FundService {
 
     // 1. Lấy dữ liệu cũ để so sánh thành viên
     final oldDoc = await fundRef.get();
-    final List<DocumentReference> oldMembers = 
-        List<DocumentReference>.from(oldDoc['members'] ?? []);
+    final List<DocumentReference> oldMembers = List<DocumentReference>.from(
+      oldDoc['members'] ?? [],
+    );
 
     // 2. Cập nhật thông tin cơ bản của quỹ
     batch.update(fundRef, {
@@ -90,7 +91,9 @@ class FundService {
     });
 
     // 3. Xử lý các thành viên MỚI thêm vào (chưa có trong oldMembers)
-    final newAdditions = members.where((m) => !oldMembers.any((old) => old.id == m.id)).toList();
+    final newAdditions = members
+        .where((m) => !oldMembers.any((old) => old.id == m.id))
+        .toList();
 
     for (final memberRef in newAdditions) {
       final memberDoc = await memberRef.get();
@@ -113,21 +116,23 @@ class FundService {
     }
 
     // 4. (Tùy chọn) Xóa các thành viên bị LOẠI khỏi quỹ
-    final removals = oldMembers.where((old) => !members.any((m) => m.id == old.id)).toList();
+    final removals = oldMembers
+        .where((old) => !members.any((m) => m.id == old.id))
+        .toList();
     for (final memberRef in removals) {
       final docId = "${fundId}_${memberRef.id}";
       batch.delete(_firestore.collection('fund_members').doc(docId));
     }
-    
+
     // 5. Cập nhật lại fundName cho tất cả fund_members hiện tại (nếu tên quỹ đổi)
     if (oldDoc['name'] != name) {
-        final membersSnap = await _firestore
-            .collection('fund_members')
-            .where('fundId', isEqualTo: fundId)
-            .get();
-        for (var doc in membersSnap.docs) {
-          batch.update(doc.reference, {'fundName': name});
-        }
+      final membersSnap = await _firestore
+          .collection('fund_members')
+          .where('fundId', isEqualTo: fundId)
+          .get();
+      for (var doc in membersSnap.docs) {
+        batch.update(doc.reference, {'fundName': name});
+      }
     }
 
     await batch.commit();
@@ -238,5 +243,49 @@ class FundService {
     }
 
     await batch.commit();
+  }
+
+  // Xác nhận thanh toán giữa 2 người
+  Future<void> settleDebt({
+    required String fundId,
+    required String fromUserId, // Người nợ
+    required String toUserId, // Người nhận
+    required int amount,
+  }) async {
+    final fromMemberRef = _firestore
+        .collection('fund_members')
+        .doc("${fundId}_$fromUserId");
+    final toMemberRef = _firestore
+        .collection('fund_members')
+        .doc("${fundId}_$toUserId");
+
+    await _firestore.runTransaction((transaction) async {
+      final fromSnap = await transaction.get(fromMemberRef);
+      final toSnap = await transaction.get(toMemberRef);
+
+      if (!fromSnap.exists || !toSnap.exists) return;
+
+      // Tính toán lại balance mới
+      // Người nợ: Tăng totalPaid lên (xem như họ vừa chi một khoản bằng khoản nợ)
+      int currentFromPaid = (fromSnap.data()?['totalPaid'] ?? 0).toInt();
+      int currentFromBalance = (fromSnap.data()?['balance'] ?? 0).toInt();
+
+      // Người nhận: Giảm totalPaid xuống (vì họ đã nhận lại tiền mặt)
+      // Hoặc đơn giản là điều chỉnh trực tiếp vào balance
+      int currentToBalance = (toSnap.data()?['balance'] ?? 0).toInt();
+
+      //- tăng totalPaid (xem như họ vừa chi một khoản bằng khoản nợ) và tăng balance (hiện đang âm sao cho về 0)
+      transaction.update(fromMemberRef, {
+        'totalPaid': currentFromPaid + amount,
+        'balance': currentFromBalance + amount,
+        'lastUpdated': FieldValue.serverTimestamp(),
+      });
+
+      transaction.update(toMemberRef, {
+        // Giảm balance của người nhận vì họ đã thu tiền về tay
+        'balance': currentToBalance - amount,
+        'lastUpdated': FieldValue.serverTimestamp(),
+      });
+    });
   }
 }
