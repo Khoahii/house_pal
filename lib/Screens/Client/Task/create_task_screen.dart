@@ -414,7 +414,7 @@ Widget _buildMemberItem({
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF4F46E5),
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
+          shape: RoundedRectangleBorder(  
             borderRadius: BorderRadius.circular(12),
           ),
         ),

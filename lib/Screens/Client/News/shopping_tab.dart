@@ -195,7 +195,7 @@ class ShoppingTab extends StatelessWidget {
                       if (isEdit) {
                         await roomRef
                             .collection('shopping_items')
-                            .doc(editItem!.id)
+                            .doc(editItem.id)
                             .update({
                           'title': title,
                           'note': note.isEmpty ? null : note,
@@ -229,7 +229,7 @@ class ShoppingTab extends StatelessWidget {
                     onPressed: () async {
                       await roomRef
                           .collection('shopping_items')
-                          .doc(editItem!.id)
+                          .doc(editItem.id)
                           .delete();
                       Navigator.pop(context);
                     },
@@ -239,7 +239,7 @@ class ShoppingTab extends StatelessWidget {
                   ),
 
                   // CREATE EXPENSE
-                  if (editItem!.linkedExpenseId == null)
+                  if (editItem.linkedExpenseId == null)
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton(
