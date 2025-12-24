@@ -22,66 +22,59 @@ class AuthWrapper extends StatelessWidget {
   Widget build(BuildContext context) {
     return FutureBuilder<bool>(
       future: isOnboardingCompleted(),
-      builder: (context, snapshot) {
-        // 1. Chờ kiểm tra Onboarding
-        if (snapshot.connectionState == ConnectionState.waiting) {
+      builder: (context, onboardSnap) {
+        if (onboardSnap.connectionState == ConnectionState.waiting) {
           return const SplashScreen();
         }
 
-        final onboardingDone = snapshot.data ?? false;
-        if (!onboardingDone) {
+        // Nếu chưa hoàn thành onboarding
+        if (!(onboardSnap.data ?? false)) {
           return const OnboadingParentScreen();
         }
 
-        // 2. Theo dõi trạng thái đăng nhập từ Firebase
         return StreamBuilder<User?>(
-          stream: AuthService().authStateChanges,
-          builder: (context, userSnap) {
-            // Đang kết nối với Firebase Auth
-            if (userSnap.connectionState == ConnectionState.waiting) {
+          stream: FirebaseAuth.instance.authStateChanges(),
+          builder: (context, authSnap) {
+            // Đang kiểm tra trạng thái đăng nhập từ Firebase Auth
+            if (authSnap.connectionState == ConnectionState.waiting) {
               return const SplashScreen();
             }
 
-            // CHƯA ĐĂNG NHẬP
-            if (!userSnap.hasData) {
+            // TRƯỜNG HỢP 1: Chưa đăng nhập
+            if (!authSnap.hasData || authSnap.data == null) {
               return const LoginScreen();
             }
 
-            // ĐÃ ĐĂNG NHẬP -> Tiếp tục lấy dữ liệu Role và Room từ Firestore
+            // TRƯỜNG HỢP 2: Đã có User (Auth thành công) -> Lấy Profile từ Firestore
             return FutureBuilder<AppUser?>(
-              // Sử dụng key để tránh build lại không cần thiết nếu UID không đổi
-              key: ValueKey(userSnap.data!.uid),
-              future: AuthService().getAppUserData(userSnap.data!.uid),
-              builder: (context, roleSnap) {
-                if (roleSnap.connectionState == ConnectionState.waiting) {
+              key: ValueKey(authSnap.data!.uid),
+              future: AuthService().getUserData(authSnap.data!.uid),
+              builder: (context, userSnap) {
+                // 1. Trong lúc đợi dữ liệu từ Firestore SAU KHI bấm đăng nhập
+                if (userSnap.connectionState == ConnectionState.waiting) {
                   return const Scaffold(
+                    backgroundColor: Color(0xFF121212),
                     body: Center(
-                      child:
-                          CircularProgressIndicator(), // Chỉ hiện vòng xoay nhẹ
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF9C27B0),
+                      ),
                     ),
                   );
                 }
 
-                if (roleSnap.hasData && roleSnap.data != null) {
-                  final appUser = roleSnap.data!;
+                // 2. Khi đã có dữ liệu (hasData)
+                if (userSnap.hasData && userSnap.data != null) {
+                  final appUser = userSnap.data!;
 
-                  // A. Nếu là ADMIN
-                  if (appUser.role == 'admin') {
-                    return const AdminMainScreen();
-                  }
+                  //- nếu là admin thì nhảy vào AdminMainScreen trước khi nó check tới JoinRoomScreen
+                  if (appUser.role == 'admin') return const AdminMainScreen();
 
-                  // B. Nếu là MEMBER hoặc ROOM_LEADER
-                  // Kiểm tra xem đã có phòng hay chưa (DocumentReference chỉ cần check null)
-                  if (appUser.roomId != null) {
-                    // Nếu đã gắn vào một Reference (có phòng) -> Vào trang chính
-                    return const MainScreen();
-                  } else {
-                    // Nếu roomId là null (chưa có phòng) -> Yêu cầu tham gia/tạo phòng
-                    return JoinRoomScreen();
-                  }
+                  return (appUser.roomId != null)
+                      ? const MainScreen()
+                      : JoinRoomScreen();
                 }
 
-                // Trường hợp có Auth nhưng Firestore không có data (lỗi dữ liệu)
+                // 3. Nếu lỗi hoặc không thấy data
                 return const LoginScreen();
               },
             );
