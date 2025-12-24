@@ -30,8 +30,9 @@ class ShoppingTab extends StatelessWidget {
         return ListView(
           children: [
             _addButton(context),
-            _section("🛒 Cần mua", unbought.toList()),
-            _section("✅ Đã mua", bought.toList()),
+           _section(context, "🛒 Cần mua", unbought.toList()),
+          _section(context, "✅ Đã mua", bought.toList()),
+
           ],
         );
       },
@@ -41,33 +42,93 @@ class ShoppingTab extends StatelessWidget {
   Widget _addButton(BuildContext context) {
     return ElevatedButton(
       onPressed: () => _openAddOrEditSheet(context),
-      child: const Text("+ Thêm vào danh sách"),
+      child: const Text("+ Thêm mua sắm"),
     );
   }
 
-  Widget _section(String title, List<ShoppingItem> items) {
+    Widget _section(BuildContext context,String title,List<ShoppingItem> items,)
+ {
     if (items.isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 12),
         Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-        ...items.map(_card),
+        ...items.map((e) => _card(context, e)),
+
       ],
     );
   }
 
-  Widget _card(ShoppingItem item) {
-    final done = item.linkedExpenseId != null;
-    return Card(
-      color: done ? Colors.green.shade50 : null,
-      child: ListTile(
-        title: Text(item.title),
-        subtitle: Text("Quỹ: ${item.fundName}"),
-        trailing:
-            done ? const Icon(Icons.check_circle, color: Colors.green) : null,
+  Widget _card(BuildContext context, ShoppingItem item) {
+  final done = item.linkedExpenseId != null;
+
+  return Card(
+    color: done ? Colors.green.shade50 : null,
+    child: ListTile(
+      // 👉 TAP = SỬA (CHỈ KHI CHƯA TẠO EXPENSE)
+      onTap: done
+          ? null
+          : () => _openAddOrEditSheet(
+                context,
+                editItem: item,
+              ),
+
+      title: Text(
+        item.title,
+        style: TextStyle(
+          decoration: done ? TextDecoration.lineThrough : null,
+        ),
       ),
-    );
+
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("Quỹ: ${item.fundName}"),
+          if (item.note != null)
+            Text(
+              item.note!,
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+        ],
+      ),
+
+      trailing: done
+          ? const Icon(Icons.check_circle, color: Colors.green)
+          : PopupMenuButton<String>(
+              onSelected: (value) async {
+                if (value == 'edit') {
+                  _openAddOrEditSheet(
+                    context,
+                    editItem: item,
+                  );
+                }
+
+                if (value == 'delete') {
+                  await roomRef
+                      .collection('shopping_items')
+                      .doc(item.id)
+                      .delete();
+                }
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(
+                  value: 'edit',
+                  child: Text('Sửa'),
+                ),
+                PopupMenuItem(
+                  value: 'delete',
+                  child: Text(
+                    'Xoá',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                ),
+              ],
+            ),
+    ),
+  );
+
+
   }
 
   void _openAddOrEditSheet(
@@ -225,41 +286,30 @@ class ShoppingTab extends StatelessWidget {
                   const SizedBox(height: 12),
 
                   // DELETE
-                  TextButton(
-                    onPressed: () async {
-                      await roomRef
-                          .collection('shopping_items')
-                          .doc(editItem!.id)
-                          .delete();
-                      Navigator.pop(context);
-                    },
-                    style: TextButton.styleFrom(
-                        foregroundColor: Colors.red),
-                    child: const Text('Xóa mục này'),
-                  ),
+                  
 
                   // CREATE EXPENSE
-                  if (editItem!.linkedExpenseId == null)
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                            CreateOrEditExpenseScreen(
-                              fundId: editItem.fundId,
-                              memberRefs: const [], // hoặc lấy từ room nếu bạn có
-                            )
+                  // if (editItem!.linkedExpenseId == null)
+                  //   SizedBox(
+                  //     width: double.infinity,
+                  //     child: OutlinedButton(
+                  //       onPressed: () {
+                  //         Navigator.pop(context);
+                  //         Navigator.push(
+                  //           context,
+                  //           MaterialPageRoute(
+                  //             builder: (_) =>
+                  //           CreateOrEditExpenseScreen(
+                  //             fundId: editItem.fundId,
+                  //             memberRefs: const [], // hoặc lấy từ room nếu bạn có
+                  //           )
 
-                            ),
-                          );
-                        },
-                        child: const Text('Tạo chi tiêu'),
-                      ),
-                    ),
+                  //           ),
+                  //         );
+                  //       },
+                  //       child: const Text('Tạo chi tiêu'),
+                  //     ),
+                  //   ),
                 ],
               ],
             );
