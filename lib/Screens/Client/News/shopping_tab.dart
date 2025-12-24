@@ -286,41 +286,30 @@ class ShoppingTab extends StatelessWidget {
                   const SizedBox(height: 12),
 
                   // DELETE
-                  TextButton(
-                    onPressed: () async {
-                      await roomRef
-                          .collection('shopping_items')
-                          .doc(editItem!.id)
-                          .delete();
-                      Navigator.pop(context);
-                    },
-                    style: TextButton.styleFrom(
-                        foregroundColor: Colors.red),
-                    child: const Text('Xóa mục này'),
-                  ),
+                  
 
                   // CREATE EXPENSE
-                  if (editItem!.linkedExpenseId == null)
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                            CreateOrEditExpenseScreen(
-                              fundId: editItem.fundId,
-                              memberRefs: const [], // hoặc lấy từ room nếu bạn có
-                            )
+                  // if (editItem!.linkedExpenseId == null)
+                  //   SizedBox(
+                  //     width: double.infinity,
+                  //     child: OutlinedButton(
+                  //       onPressed: () {
+                  //         Navigator.pop(context);
+                  //         Navigator.push(
+                  //           context,
+                  //           MaterialPageRoute(
+                  //             builder: (_) =>
+                  //           CreateOrEditExpenseScreen(
+                  //             fundId: editItem.fundId,
+                  //             memberRefs: const [], // hoặc lấy từ room nếu bạn có
+                  //           )
 
-                            ),
-                          );
-                        },
-                        child: const Text('Tạo chi tiêu'),
-                      ),
-                    ),
+                  //           ),
+                  //         );
+                  //       },
+                  //       child: const Text('Tạo chi tiêu'),
+                  //     ),
+                  //   ),
                 ],
               ],
             );
