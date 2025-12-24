@@ -54,16 +54,16 @@ class _MainFundScreenState extends State<MainFundScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
       appBar: AppBar(
+        //- change background color
         title: const Text(
           "Quỹ Nhóm",
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         centerTitle: false,
         elevation: 0,
-        backgroundColor: Colors.transparent,
-        foregroundColor: Colors.black87,
+        backgroundColor: const Color(0xFF2563EB), // Màu xanh Primary
+        foregroundColor: Colors.white,
       ),
 
       // BỌC StreamBuilder CỦA DANH SÁCH QUỸ BÊN TRONG StreamBuilder CỦA USER
@@ -93,7 +93,6 @@ class _MainFundScreenState extends State<MainFundScreen> {
               final totalSpen = funds.isEmpty
                   ? 0
                   : funds.map((f) => f.totalSpent).reduce((a, b) => a + b);
-
 
               return SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
@@ -179,6 +178,7 @@ class _MainFundScreenState extends State<MainFundScreen> {
       ),
 
       floatingActionButton: FloatingActionButton(
+        heroTag: "createFund",
         backgroundColor: const Color(0xFF4F46E5),
         onPressed: _showCreateFundSheet,
         child: const Icon(Icons.add, color: Colors.white),
@@ -343,6 +343,65 @@ class _MainFundScreenState extends State<MainFundScreen> {
                               fontSize: 13,
                             ),
                           ),
+
+                          StreamBuilder<Map<String, dynamic>?>(
+                            stream: _fundService.getMyStatusInFund(fund.id),
+                            builder: (context, statusSnapshot) {
+                              if (!statusSnapshot.hasData)
+                                return const SizedBox.shrink();
+
+                              final data = statusSnapshot.data!;
+                              final int balance = (data['balance'] ?? 0)
+                                  .toInt();
+
+                              Color statusColor = Colors.grey;
+                              IconData statusIcon = Icons.check_circle_outline;
+                              String statusText = "Cân bằng";
+
+                              if (balance > 0) {
+                                statusColor = Colors.green;
+                                statusIcon = Icons.arrow_upward;
+                                statusText =
+                                    "Cần thu: ${currencyFormat.format(balance)}";
+                              } else if (balance < 0) {
+                                statusColor = Colors.red;
+                                statusIcon = Icons.arrow_downward;
+                                statusText =
+                                    "Nợ: ${currencyFormat.format(balance.abs())}";
+                              }
+
+                              return Container(
+                                margin: const EdgeInsets.only(top: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: statusColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      statusIcon,
+                                      size: 14,
+                                      color: statusColor,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      statusText,
+                                      style: TextStyle(
+                                        color: statusColor,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
                         ],
                       ),
                     ],
@@ -351,25 +410,6 @@ class _MainFundScreenState extends State<MainFundScreen> {
                   // —— CHỈ ADMIN, LEADER, CREATOR MỚI THẤY MORE VERTICAL ——
                   Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.green[50],
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          "Đang mở",
-                          style: TextStyle(
-                            color: Colors.green[700],
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-
                       // Chỉ hiển thị IconButton nếu có quyền xóa
                       if (canDelete) ...[
                         const SizedBox(width: 8),
@@ -462,7 +502,6 @@ class _MainFundScreenState extends State<MainFundScreen> {
     );
   }
 
-
   void _showFundActions(Fund fund) {
     showModalBottomSheet(
       context: context,
@@ -493,7 +532,6 @@ class _MainFundScreenState extends State<MainFundScreen> {
       ),
     );
   }
-
 
   Widget _buildEmptyState() {
     return Center(

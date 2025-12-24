@@ -80,6 +80,7 @@ class _MainTaskState extends State<MainTask> {
           ? null
           : (currentUser != null && currentUser!.canCreateTask && currentRoom != null)
           ? FloatingActionButton(
+            heroTag: 'createTask',
               onPressed: () {
                 Navigator.push(
                   context,

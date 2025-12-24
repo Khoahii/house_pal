@@ -72,13 +72,65 @@ class FundService {
     required String iconEmoji,
     required List<DocumentReference> members,
   }) async {
-    await _firestore.collection('funds').doc(fundId).update({
+    final batch = _firestore.batch();
+    final fundRef = _firestore.collection('funds').doc(fundId);
+
+    // 1. Lấy dữ liệu cũ để so sánh thành viên
+    final oldDoc = await fundRef.get();
+    final List<DocumentReference> oldMembers = 
+        List<DocumentReference>.from(oldDoc['members'] ?? []);
+
+    // 2. Cập nhật thông tin cơ bản của quỹ
+    batch.update(fundRef, {
       'name': name,
       'iconId': iconId,
       'iconEmoji': iconEmoji,
       'members': members,
       'updatedAt': FieldValue.serverTimestamp(),
     });
+
+    // 3. Xử lý các thành viên MỚI thêm vào (chưa có trong oldMembers)
+    final newAdditions = members.where((m) => !oldMembers.any((old) => old.id == m.id)).toList();
+
+    for (final memberRef in newAdditions) {
+      final memberDoc = await memberRef.get();
+      final userData = memberDoc.data() as Map<String, dynamic>;
+      final docId = "${fundId}_${memberRef.id}";
+      final fundMemberRef = _firestore.collection('fund_members').doc(docId);
+
+      batch.set(fundMemberRef, {
+        'fundId': fundId,
+        'fundName': name,
+        'userId': memberRef.id,
+        'userName': userData['name'] ?? 'Unknown',
+        'userAvatar': userData['avatarUrl'],
+        'totalPaid': 0,
+        'totalOwed': 0,
+        'balance': 0,
+        'joinedAt': FieldValue.serverTimestamp(),
+        'lastUpdated': FieldValue.serverTimestamp(),
+      });
+    }
+
+    // 4. (Tùy chọn) Xóa các thành viên bị LOẠI khỏi quỹ
+    final removals = oldMembers.where((old) => !members.any((m) => m.id == old.id)).toList();
+    for (final memberRef in removals) {
+      final docId = "${fundId}_${memberRef.id}";
+      batch.delete(_firestore.collection('fund_members').doc(docId));
+    }
+    
+    // 5. Cập nhật lại fundName cho tất cả fund_members hiện tại (nếu tên quỹ đổi)
+    if (oldDoc['name'] != name) {
+        final membersSnap = await _firestore
+            .collection('fund_members')
+            .where('fundId', isEqualTo: fundId)
+            .get();
+        for (var doc in membersSnap.docs) {
+          batch.update(doc.reference, {'fundName': name});
+        }
+    }
+
+    await batch.commit();
   }
 
   // Lấy stream tất cả quỹ mà user hiện tại đang tham gia (dùng trong MainFundScreen)
@@ -143,6 +195,15 @@ class FundService {
             'totalToPay': totalToPay,
           };
         });
+  }
+
+  // Lấy thông tin tài chính cá nhân trong 1 quỹ cụ thể
+  Stream<Map<String, dynamic>?> getMyStatusInFund(String fundId) {
+    return _firestore
+        .collection('fund_members')
+        .doc("${fundId}_$currentUserId")
+        .snapshots()
+        .map((snap) => snap.exists ? snap.data() : null);
   }
 
   // Xóa quỹ (chỉ creator hoặc admin/room_leader mới được)
