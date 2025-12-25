@@ -6,7 +6,7 @@ import 'package:house_pal/models/app_user.dart';
 import 'package:house_pal/Screens/Client/Task/ranking_screen.dart';
 import 'package:house_pal/Screens/Client/Task/task_detail_screen.dart';
 import 'package:house_pal/models/room.dart';
-import 'package:house_pal/services/snack_bar_service.dart';
+
 void main() {
   runApp(const MainTaskScreen());
 }
@@ -447,8 +447,8 @@ class _MainTaskState extends State<MainTask> {
                             description: data['description'] ?? '',
                             assignee: assigneeName,
                             assigneeAvatar: assigneeAvatar,
-                            onDetailTap: () async {
-                              final deleted = await Navigator.push<bool>(
+                            onDetailTap: () {
+                              Navigator.push(
                                 context,
                                 MaterialPageRoute(
                                   builder: (_) => TaskDetailScreen(
@@ -457,11 +457,6 @@ class _MainTaskState extends State<MainTask> {
                                   ),
                                 ),
                               );
-
-                              if (!mounted) return;
-                              if (deleted == true) {
-                                SnackBarService.showSuccess(context, 'Đã xóa công việc thành công');
-                              }
                             },
                           );
                         },
@@ -676,7 +671,7 @@ class TaskCardItem extends StatelessWidget {
                   ),
                 ],
               ),
-              TextButton(
+             TextButton(
                 onPressed: onDetailTap,
                 style: TextButton.styleFrom(
                   padding:
