@@ -2,9 +2,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:house_pal/models/task_model.dart';
 import 'package:house_pal/models/app_user.dart';
 import 'package:house_pal/models/completion.dart';
+import 'package:house_pal/services/leaderboard_service.dart';
 
 class CompletionService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final LeaderboardService _leaderboardService = LeaderboardService();
 
   /// Hoàn thành task với logic phân biệt manual/auto
   Future<void> completeTask({
@@ -72,6 +74,15 @@ class CompletionService {
       print('💾 Commit batch...');
       await batch.commit();
       print('✅ Hoàn thành batch commit');
+
+      // 4️⃣ Cộng điểm vào leaderboard (sau khi batch commit thành công)
+      print('🏆 Cộng ${task.point} điểm cho user ${currentUser.uid}');
+      await _leaderboardService.updateScore(
+        roomId: roomId,
+        userId: currentUser.uid,
+        scoreToAdd: task.point,
+      );
+      print('✅ Đã cộng điểm vào leaderboard');
       
     } catch (e) {
       print('❌ Lỗi trong completeTask: $e');

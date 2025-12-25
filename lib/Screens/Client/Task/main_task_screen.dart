@@ -6,6 +6,8 @@ import 'package:house_pal/models/app_user.dart';
 import 'package:house_pal/Screens/Client/Task/ranking_screen.dart';
 import 'package:house_pal/Screens/Client/Task/task_detail_screen.dart';
 import 'package:house_pal/models/room.dart';
+import 'package:house_pal/services/leaderboard_service.dart';
+import 'package:house_pal/models/leaderboard_score.dart';
 
 void main() {
   runApp(const MainTaskScreen());
@@ -185,12 +187,16 @@ class _MainTaskState extends State<MainTask> {
                       ),
                       InkWell(
                         onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const RankingScreen(),
-                            ),
-                          );
+                          if (currentRoom != null) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => RankingScreen(
+                                  roomId: currentRoom!.id,
+                                ),
+                              ),
+                            );
+                          }
                         },
                         child: const Text(
                           'Xem tất cả',
@@ -202,25 +208,93 @@ class _MainTaskState extends State<MainTask> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 40),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: const [
-                      LeaderboardItem(
-                        name: 'Minh',
-                        image: 'https://placehold.co/48x48',
-                        isWinner: true,
+                  const SizedBox(height: 16),
+
+                  // StreamBuilder để lấy top 3 từ Firestore
+                  if (currentRoom != null)
+                    StreamBuilder<List<LeaderboardScore>>(
+                      stream: LeaderboardService().getTop3(currentRoom!.id),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const SizedBox(
+                            height: 80,
+                            child: Center(
+                              child: SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+
+                        if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 20),
+                            child: Center(
+                              child: Text(
+                                'Chưa có dữ liệu xếp hạng',
+                                style: TextStyle(
+                                  color: Color(0xFFE0E7FF),
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+
+                        final top3 = snapshot.data!;
+                        
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            // Rank 1 (giữa)
+                            if (top3.isNotEmpty)
+                              LeaderboardItem(
+                                name: top3[0].userName ?? 'User',
+                                image: top3[0].userAvatar ?? 'https://i.pravatar.cc/150?img=1',
+                                isWinner: true,
+                              )
+                            else
+                              const SizedBox(width: 60),
+                            
+                            // Rank 2 (trái)
+                            if (top3.length >= 2)
+                              LeaderboardItem(
+                                name: top3[1].userName ?? 'User',
+                                image: top3[1].userAvatar ?? 'https://i.pravatar.cc/150?img=2',
+                              )
+                            else
+                              const SizedBox(width: 60),
+                            
+                            // Rank 3 (phải)
+                            if (top3.length >= 3)
+                              LeaderboardItem(
+                                name: top3[2].userName ?? 'User',
+                                image: top3[2].userAvatar ?? 'https://i.pravatar.cc/150?img=3',
+                              )
+                            else
+                              const SizedBox(width: 60),
+                          ],
+                        );
+                      },
+                    )
+                  else
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      child: Center(
+                        child: Text(
+                          'Vui lòng tham gia phòng',
+                          style: TextStyle(
+                            color: Color(0xFFE0E7FF),
+                            fontSize: 12,
+                          ),
+                        ),
                       ),
-                      LeaderboardItem(
-                        name: 'Hương',
-                        image: 'https://placehold.co/48x48',
-                      ),
-                      LeaderboardItem(
-                        name: 'Tuấn',
-                        image: 'https://placehold.co/48x48',
-                      ),
-                    ],
-                  ),
+                    ),
                 ],
               ),
             ),
@@ -671,35 +745,22 @@ class TaskCardItem extends StatelessWidget {
                   ),
                 ],
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
+             TextButton(
+                onPressed: onDetailTap,
+                style: TextButton.styleFrom(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  backgroundColor: const Color(0xFFEEF2FF),
+                  foregroundColor: const Color(0xFF4F46E5),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEEF2FF),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: InkWell(
-                  onTap: onDetailTap,
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEEF2FF),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Text(
-                      'Chi tiết',
-                      style: TextStyle(
-                        color: Color(0xFF4F46E5),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
+                child: const Text(
+                  'Chi tiết',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),

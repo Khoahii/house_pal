@@ -25,11 +25,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final CompletionService _completionService = CompletionService();
 
-  bool _isLoading = false;
+  bool _isProcessing = false; // Đổi tên từ _isLoading
   bool _hasPopped = false;
   bool _justCompleted = false;
 
-  // ✅ THÊM: Reset flags mỗi lần vào màn hình
   @override
   void initState() {
     super.initState();
@@ -37,6 +36,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     _justCompleted = false;
   }
 
+  // ✅ Constants để tránh rebuild
   static const _freqMap = {
     'daily': 'Hàng ngày',
     'weekly': 'Hàng tuần',
@@ -49,7 +49,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     'hard': 'Khó',
   };
 
-  // ✅ OPTIMIZATION: Tách riêng dialog để tránh rebuild
+  // ✅ OPTIMIZATION: Dialog tách riêng
   Future<bool> _showDeleteConfirm() async {
     final result = await showDialog<bool>(
       context: context,
@@ -84,7 +84,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   Future<void> _handleDelete() async {
     if (!await _showDeleteConfirm()) return;
 
-    setState(() => _isLoading = true);
+    setState(() => _isProcessing = true);
     
     try {
       await _firestore
@@ -95,7 +95,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           .delete();
 
       if (!mounted) return;
-
       _showSnackBar('Đã xóa công việc thành công');
 
       if (!_hasPopped) {
@@ -108,12 +107,16 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       }
     } finally {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() => _isProcessing = false);
       }
     }
   }
 
+  // ✅ OPTIMIZED: Pop ngay, xử lý background
   Future<void> _handleCompleteTask(Task task) async {
+    // Prevent double tap
+    if (_isProcessing) return;
+    
     final authProvider = Provider.of<MyAuthProvider>(context, listen: false);
     final currentUser = authProvider.currentUser;
 
@@ -122,9 +125,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       return;
     }
 
-    setState(() => _isLoading = true);
+    // ✅ ĐÁNH DẤU đang xử lý → StreamBuilder SẼ BỎ QUA updates
+    setState(() {
+      _isProcessing = true;
+      _justCompleted = true; // ← Quan trọng
+    });
     
     try {
+      // Xử lý Firestore
       await _completionService.completeTask(
         roomId: widget.roomId,
         task: task,
@@ -133,35 +141,30 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
       if (!mounted) return;
 
-      // ✅ Chỉ set khi thành công
-      setState(() {
-        _justCompleted = true;
-      });
-
+      // Hiện thông báo
       _showSnackBar(
         'Hoàn thành thành công! +${task.point} điểm',
         isSuccess: true,
       );
 
-      // Manual task → pop ngay
-      if (task.assignMode == 'manual' && !_hasPopped) {
+      // ✅ Pop NGAY sau thông báo (không chờ StreamBuilder)
+      if (!_hasPopped) {
         _hasPopped = true;
-        Navigator.of(context).pop();
+        // Delay nhỏ để user thấy snackbar
+        await Future.delayed(const Duration(milliseconds: 300));
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
       }
-      // Auto task → để StreamBuilder tự pop khi detect không còn được assign
       
     } catch (e) {
       if (mounted) {
         _showSnackBar('Lỗi: $e', isError: true);
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() => _isProcessing = false);
       }
     }
   }
 
-  // ✅ OPTIMIZATION: Helper method cho SnackBar
   void _showSnackBar(String message, {bool isError = false, bool isSuccess = false}) {
     if (!mounted) return;
     
@@ -201,7 +204,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     return assigneeRef?.id == currentUser.uid;
   }
 
-  // ✅ OPTIMIZATION: Tách logic pop để tránh duplicate code
   void _popIfNeeded() {
     if (mounted && !_hasPopped) {
       _hasPopped = true;
@@ -224,17 +226,21 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             .doc(widget.assignmentId)
             .snapshots(),
         builder: (context, snapshot) {
-          // Loading state
+          // ✅ IGNORE updates khi đang complete
+          if (_justCompleted) {
+            // Vẫn hiện UI cũ, không rebuild
+            return const SizedBox.shrink();
+          }
+
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          // Error state
           if (snapshot.hasError) {
             return Center(child: Text('Lỗi: ${snapshot.error}'));
           }
 
-          // Task đã bị xóa (manual task)
+          // Task đã bị xóa
           if (!snapshot.hasData || !snapshot.data!.exists) {
             WidgetsBinding.instance.addPostFrameCallback((_) => _popIfNeeded());
             return const SizedBox.shrink();
@@ -247,7 +253,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
           final canComplete = _isCurrentUserAssignee(task, currentUser);
 
-          // ✅ Auto task completed → user không còn được assign → pop
+          // Auto task completed → không còn được assign → pop
           if (task.assignMode == 'auto' && _justCompleted && !canComplete) {
             WidgetsBinding.instance.addPostFrameCallback((_) => _popIfNeeded());
             return const SizedBox.shrink();
@@ -295,7 +301,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       ),
       actions: [
         if (currentUser?.canCreateTask ?? false)
-          _isLoading
+          _isProcessing
               ? const Padding(
                   padding: EdgeInsets.all(16.0),
                   child: SizedBox(
@@ -339,7 +345,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
   }
 
-  // ✅ OPTIMIZATION: Extract popup menu item
   PopupMenuItem<String> _buildPopupMenuItem({
     required String value,
     required IconData icon,
@@ -403,7 +408,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               CircleAvatar(
                 radius: 24,
                 backgroundColor: Colors.grey[200],
-                // ✅ OPTIMIZATION: Null-safe avatar
                 backgroundImage: (avatarUrl?.isNotEmpty ?? false)
                     ? NetworkImage(avatarUrl!)
                     : null,
@@ -572,17 +576,31 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       child: SizedBox(
         width: double.infinity,
         height: 48,
-        child: _isLoading
-            ? const Center(
-                child: SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      Color(0xFF4F46E5),
+        child: _isProcessing
+            ? Center(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Color(0xFF4F46E5),
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Đang xử lý...',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: primaryColor,
+                      ),
+                    ),
+                  ],
                 ),
               )
             : ElevatedButton.icon(
