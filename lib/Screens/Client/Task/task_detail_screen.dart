@@ -5,6 +5,7 @@ import 'package:house_pal/models/task_model.dart';
 import 'package:house_pal/services/completion_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:house_pal/models/app_user.dart';
+import 'package:house_pal/services/snack_bar_service.dart';
 
 class TaskDetailScreen extends StatefulWidget {
   final String roomId;
@@ -28,6 +29,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   bool _isLoading = false;
   bool _hasPopped = false;
   bool _justCompleted = false;
+  bool _isDeleting = false;
 
   // ✅ THÊM: Reset flags mỗi lần vào màn hình
   @override
@@ -73,18 +75,16 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   }
 
   void _handleEdit(Task task) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Chức năng chỉnh sửa đang được phát triển'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+    SnackBarService.showInfo(context, 'Chức năng chỉnh sửa đang được phát triển');
   }
 
   Future<void> _handleDelete() async {
     if (!await _showDeleteConfirm()) return;
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _isDeleting = true;
+    });
     
     try {
       await _firestore
@@ -94,22 +94,19 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           .doc(widget.assignmentId)
           .delete();
 
-      if (!mounted) return;
+      // if (!mounted) return;
 
-      _showSnackBar('Đã xóa công việc thành công');
-
-      if (!_hasPopped) {
-        _hasPopped = true;
-        Navigator.of(context).pop();
-      }
+      _popIfNeeded(result: true);
     } catch (e) {
       if (mounted) {
-        _showSnackBar('Lỗi khi xóa: $e', isError: true);
+        SnackBarService.showError(context, 'Lỗi khi xóa: $e');
       }
+      _isDeleting = false;
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
+      _isDeleting = false;
     }
   }
 
@@ -118,7 +115,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     final currentUser = authProvider.currentUser;
 
     if (currentUser == null) {
-      _showSnackBar('Vui lòng đăng nhập', isError: true);
+      SnackBarService.showError(context, 'Vui lòng đăng nhập');
       return;
     }
 
@@ -138,9 +135,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         _justCompleted = true;
       });
 
-      _showSnackBar(
+      SnackBarService.showSuccess(
+        context,
         'Hoàn thành thành công! +${task.point} điểm',
-        isSuccess: true,
       );
 
       // Manual task → pop ngay
@@ -152,30 +149,13 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       
     } catch (e) {
       if (mounted) {
-        _showSnackBar('Lỗi: $e', isError: true);
+        SnackBarService.showError(context, 'Lỗi: $e');
       }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
     }
-  }
-
-  // ✅ OPTIMIZATION: Helper method cho SnackBar
-  void _showSnackBar(String message, {bool isError = false, bool isSuccess = false}) {
-    if (!mounted) return;
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError 
-            ? Colors.red 
-            : isSuccess 
-                ? Colors.green 
-                : null,
-        duration: const Duration(seconds: 2),
-      ),
-    );
   }
 
   String _getFrequencyText(String frequency) =>
@@ -202,10 +182,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   }
 
   // ✅ OPTIMIZATION: Tách logic pop để tránh duplicate code
-  void _popIfNeeded() {
+  void _popIfNeeded({Object? result}) {
     if (mounted && !_hasPopped) {
       _hasPopped = true;
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(result);
     }
   }
 
@@ -236,7 +216,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
           // Task đã bị xóa (manual task)
           if (!snapshot.hasData || !snapshot.data!.exists) {
-            WidgetsBinding.instance.addPostFrameCallback((_) => _popIfNeeded());
+            WidgetsBinding.instance.addPostFrameCallback(
+              (_) => _popIfNeeded(result: _isDeleting ? true : null),
+            );
             return const SizedBox.shrink();
           }
 

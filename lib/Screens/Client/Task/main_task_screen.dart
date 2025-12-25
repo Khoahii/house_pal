@@ -6,7 +6,7 @@ import 'package:house_pal/models/app_user.dart';
 import 'package:house_pal/Screens/Client/Task/ranking_screen.dart';
 import 'package:house_pal/Screens/Client/Task/task_detail_screen.dart';
 import 'package:house_pal/models/room.dart';
-
+import 'package:house_pal/services/snack_bar_service.dart';
 void main() {
   runApp(const MainTaskScreen());
 }
@@ -447,8 +447,8 @@ class _MainTaskState extends State<MainTask> {
                             description: data['description'] ?? '',
                             assignee: assigneeName,
                             assigneeAvatar: assigneeAvatar,
-                            onDetailTap: () {
-                              Navigator.push(
+                            onDetailTap: () async {
+                              final deleted = await Navigator.push<bool>(
                                 context,
                                 MaterialPageRoute(
                                   builder: (_) => TaskDetailScreen(
@@ -457,6 +457,11 @@ class _MainTaskState extends State<MainTask> {
                                   ),
                                 ),
                               );
+
+                              if (!mounted) return;
+                              if (deleted == true) {
+                                SnackBarService.showSuccess(context, 'Đã xóa công việc thành công');
+                              }
                             },
                           );
                         },
@@ -671,35 +676,22 @@ class TaskCardItem extends StatelessWidget {
                   ),
                 ],
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
+              TextButton(
+                onPressed: onDetailTap,
+                style: TextButton.styleFrom(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  backgroundColor: const Color(0xFFEEF2FF),
+                  foregroundColor: const Color(0xFF4F46E5),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEEF2FF),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: InkWell(
-                  onTap: onDetailTap,
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEEF2FF),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Text(
-                      'Chi tiết',
-                      style: TextStyle(
-                        color: Color(0xFF4F46E5),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
+                child: const Text(
+                  'Chi tiết',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),

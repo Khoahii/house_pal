@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:house_pal/services/snack_bar_service.dart';
 import '../../../models/task_model.dart';
 import '../../../models/room.dart';
 import '../../../models/app_user.dart';
@@ -30,6 +31,10 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   DocumentReference? _manualAssignedTo;
 
   List<AppUser> roomMembers = [];
+  
+  // ✅ Anti-spam flags
+  bool _isSaving = false;
+  bool _hasPopped = false;
 
   @override
   void initState() {
@@ -37,48 +42,97 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     _loadRoomMembers();
   }
 
-  void _loadRoomMembers() async {
-    // Lọc ở tầng dữ liệu: chỉ member, theo thứ tự tham gia
+  // ✅ THÊM: Dispose controllers
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadRoomMembers() async {
     final roomRef = FirebaseFirestore.instance
         .collection('rooms')
         .doc(widget.currentRoom.id);
 
-    final qs = await FirebaseFirestore.instance
-        .collection('users')
-        .where('roomId', isEqualTo: roomRef)
-        .where('role', whereIn: ['member', 'room_leader'])  // ✅ giữ leader room
-        // .orderBy('createdAt') // nếu gây lỗi index, sort client thay thế
-        .get();
+    try {
+      final qs = await FirebaseFirestore.instance
+          .collection('users')
+          .where('roomId', isEqualTo: roomRef)
+          .where('role', whereIn: ['member', 'room_leader'])
+          .get();
 
-    final members = qs.docs.map((d) => AppUser.fromFirestore(d)).toList();
-    setState(() => roomMembers = members);
+      final members = qs.docs.map((d) => AppUser.fromFirestore(d)).toList();
+      
+      // ✅ THÊM: Check mounted trước setState
+      if (mounted) {
+        setState(() => roomMembers = members);
+      }
+    } catch (e) {
+      debugPrint('Error loading room members: $e');
+      if (mounted) {
+        setState(() => roomMembers = []);
+      }
+    }
   }
 
   void _saveTask() async {
     if (_titleController.text.isEmpty) return;
+    
+    if (_isSaving) return;
 
-    // Để TaskService xử lý auto-assign (không tự set rotation ở client)
-    final task = Task(
-      title: _titleController.text,
-      description: _descController.text,
-      difficulty: _difficulty,
-      point: _point,
-      frequency: _frequency,
-      assignMode: _assignMode,
-      rotationOrder: _assignMode == 'auto' ? null : null, // ✅ để service xử lý
-      rotationIndex: _assignMode == 'auto' ? null : null, // ✅ để service xử lý
-      manualAssignedTo: _assignMode == 'manual' ? _manualAssignedTo : null,
-      createdBy: FirebaseFirestore.instance
-          .collection('users')
-          .doc(widget.currentUser.uid),
-      createdAt: Timestamp.now(),
-      updatedAt: Timestamp.now(),
-    );
+    setState(() => _isSaving = true);
 
-    await TaskService().createTask(widget.currentRoom.id, task);
-    Navigator.pop(context);
+    try {
+      final task = Task(
+        title: _titleController.text,
+        description: _descController.text,
+        difficulty: _difficulty,
+        point: _point,
+        frequency: _frequency,
+        assignMode: _assignMode,
+        rotationOrder: null,  // ✅ Service xử lý
+        rotationIndex: null,  // ✅ Service xử lý
+        manualAssignedTo: _assignMode == 'manual' ? _manualAssignedTo : null,
+        createdBy: FirebaseFirestore.instance
+            .collection('users')
+            .doc(widget.currentUser.uid),
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      );
+
+      await TaskService().createTask(widget.currentRoom.id, task);
+
+      if (mounted) {
+        SnackBarService.showSuccess(context, "Đã tạo việc mới thành công!");
+      }
+
+      if (!_hasPopped) {
+        _hasPopped = true;
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      // ✅ SỬA: Dùng SnackBarService.showError thay vì ScaffoldMessenger
+      if (mounted) {
+        String errorMsg = 'Tạo việc thất bại';
+        if (e.toString().contains('network')) {
+          errorMsg = 'Kiểm tra kết nối mạng';
+        } else if (e.toString().contains('permission')) {
+          errorMsg = 'Bạn không có quyền tạo việc';
+        } else if (e.toString().contains('already exists')) {
+          errorMsg = 'Công việc này đã tồn tại';
+        }
+
+        SnackBarService.showError(context, errorMsg);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
   }
-@override
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
@@ -118,22 +172,21 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
             _buildLabel('Phân công'),
             const SizedBox(height: 12),
             _buildAutoAssignCard(),
-          const SizedBox(height: 12),
+            const SizedBox(height: 12),
             const Text(
-             'Hoặc chỉ định thành viên:',
+              'Hoặc chỉ định thành viên:',
               style: TextStyle(
                   fontSize: 14, fontWeight: FontWeight.w500, color: Colors.grey),
             ),
-           const SizedBox(height: 12),
+            const SizedBox(height: 12),
             _buildMemberList(),
             const SizedBox(height: 32),
-           _buildSaveButton(),
-         ],
-       ),
-     ),
-    ); }
-
-  // ===== UI giữ nguyên =====
+            _buildSaveButton(),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildLabel(String text) {
     return Row(
@@ -310,101 +363,99 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   }
 
   Widget _buildMemberList() {
-  if (roomMembers.isEmpty) {
-    return const Center(
-      child: Text(
-        'Không có thành viên để phân công',
-        style: TextStyle(color: Colors.grey),
-      ),
+    if (roomMembers.isEmpty) {
+      return const Center(
+        child: Text(
+          'Không có thành viên để phân công',
+          style: TextStyle(color: Colors.grey),
+        ),
+      );
+    }
+
+    return Column(
+      children: roomMembers.map((user) {
+        final userRef = FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid);
+
+        final isSelected =
+            _assignMode == 'manual' && _manualAssignedTo?.id == user.uid;
+
+        return GestureDetector(
+          onTap: () {
+            setState(() {
+              _assignMode = 'manual';
+              _manualAssignedTo = userRef;
+            });
+          },
+          child: _buildMemberItem(
+            name: user.name,
+            avatarUrl: user.avatarUrl,
+            isSelected: isSelected,
+          ),
+        );
+      }).toList(),
     );
   }
 
-  return Column(
-    children: roomMembers.map((user) {
-      final userRef = FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid);
-
-      final isSelected =
-          _assignMode == 'manual' && _manualAssignedTo?.id == user.uid;
-
-      return GestureDetector(
-        onTap: () {
-          setState(() {
-            _assignMode = 'manual';
-            _manualAssignedTo = userRef;
-          });
-        },
-        child: _buildMemberItem(
-          name: user.name,
-          avatarUrl: user.avatarUrl,  // ✅ THÊM: truyền avatar
-          isSelected: isSelected,
-        ),
-      );
-    }).toList(),
-  );
-}
-
-// ✅ SỬA: Thêm avatarUrl parameter
-Widget _buildMemberItem({
-  required String name,
-  String? avatarUrl,  // ✅ THÊM
-  required bool isSelected,
-}) {
-  return Container(
-    margin: const EdgeInsets.only(bottom: 8),
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: isSelected
-          ? const Color(0xFFE0E7FF)
-          : Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(
+  Widget _buildMemberItem({
+    required String name,
+    String? avatarUrl,
+    required bool isSelected,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
         color: isSelected
-            ? const Color(0xFF4F46E5)
-            : Colors.grey.shade300,
-        width: isSelected ? 2 : 1,
+            ? const Color(0xFFE0E7FF)
+            : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isSelected
+              ? const Color(0xFF4F46E5)
+              : Colors.grey.shade300,
+          width: isSelected ? 2 : 1,
+        ),
       ),
-    ),
-    child: Row(
-      children: [
-        // ✅ SỬA: Hiển thị avatar hoặc letter
-        avatarUrl != null && avatarUrl.isNotEmpty
-            ? CircleAvatar(
-                radius: 20,
-                backgroundImage: NetworkImage(avatarUrl),
-                backgroundColor: Colors.grey[300],
-              )
-            : CircleAvatar(
-                backgroundColor: isSelected
-                    ? const Color(0xFF4F46E5)
-                    : Colors.blue,
-                child: Text(
-                  name.isNotEmpty ? name[0].toUpperCase() : '?',
-                  style: const TextStyle(color: Colors.white),
+      child: Row(
+        children: [
+          avatarUrl != null && avatarUrl.isNotEmpty
+              ? CircleAvatar(
+                  radius: 20,
+                  backgroundImage: NetworkImage(avatarUrl),
+                  backgroundColor: Colors.grey[300],
+                )
+              : CircleAvatar(
+                  backgroundColor: isSelected
+                      ? const Color(0xFF4F46E5)
+                      : Colors.blue,
+                  child: Text(
+                    name.isNotEmpty ? name[0].toUpperCase() : '?',
+                    style: const TextStyle(color: Colors.white),
+                  ),
                 ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              name,
+              style: TextStyle(
+                fontWeight: FontWeight.w500,
+                color: isSelected
+                    ? const Color(0xFF4F46E5)
+                    : Colors.black,
               ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            name,
-            style: TextStyle(
-              fontWeight: FontWeight.w500,
-              color: isSelected
-                  ? const Color(0xFF4F46E5)
-                  : Colors.black,
             ),
           ),
-        ),
-        if (isSelected)
-          const Icon(
-            Icons.check_circle,
-            color: Color(0xFF4F46E5),
-          ),
-      ],
-    ),
-  );
-}
+          if (isSelected)
+            const Icon(
+              Icons.check_circle,
+              color: Color(0xFF4F46E5),
+            ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildSaveButton() {
     return SizedBox(
@@ -414,15 +465,24 @@ Widget _buildMemberItem({
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF4F46E5),
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(  
+          shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
         ),
-        onPressed: _saveTask,
-        child: const Text(
-          'Lưu Việc Nhà',
-          style: TextStyle(fontWeight: FontWeight.w600),
-        ),
+        onPressed: _isSaving ? null : _saveTask,
+        child: _isSaving
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : const Text(
+                'Lưu Việc Nhà',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
       ),
     );
   }
