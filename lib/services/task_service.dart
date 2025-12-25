@@ -13,7 +13,7 @@ class TaskService {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((qs) => qs.docs
-            .map((d) => Task.fromMap(d.id, d.data() as Map<String, dynamic>))
+            .map((d) => Task.fromMap(d.id, d.data()))
             .toList());
   }
 
