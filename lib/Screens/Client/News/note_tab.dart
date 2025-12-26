@@ -1,108 +1,158 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../models/bulletin.dart';
 import '../../../services/bulletin_service.dart';
 
-
-class NoteTab extends StatelessWidget {
-  final DocumentReference roomRef;
+class NoteTab extends StatefulWidget {
+  final String roomId;
   final bool isAdmin;
 
-  NoteTab({super.key, required this.roomRef, required this.isAdmin});
+  const NoteTab({
+    super.key,
+    required this.roomId,
+    required this.isAdmin,
+  });
 
-  final _service = BulletinService();
+  @override
+  State<NoteTab> createState() => _NoteTabState();
+
+  // Giữ lại hàm static để gọi từ bên ngoài (ví dụ từ FloatingActionButton)
+  static void showAddDialog(BuildContext context, String roomId) {
+    final titleCtrl = TextEditingController();
+    final contentCtrl = TextEditingController();
+    final service = BulletinService();
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Thêm ghi chú"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: titleCtrl,
+              decoration: const InputDecoration(labelText: "Tiêu đề"),
+            ),
+            TextField(
+              controller: contentCtrl,
+              decoration: const InputDecoration(labelText: "Nội dung"),
+              maxLines: 3,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Hủy"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (titleCtrl.text.isNotEmpty) {
+                service.add(
+                  roomId,
+                  titleCtrl.text,
+                  contentCtrl.text,
+                );
+                Navigator.pop(context);
+              }
+            },
+            child: const Text("Lưu"),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NoteTabState extends State<NoteTab> {
+  // Khởi tạo service và stream ở cấp độ State
+  late final BulletinService _service;
+  late Stream<List<Bulletin>> _bulletinStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _service = BulletinService();
+    // Khởi tạo stream một lần duy nhất khi vào trang
+    _bulletinStream = _service.stream(widget.roomId);
+  }
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<Bulletin>>(
-      stream: _service.bulletinsStream(roomRef),
+      stream: _bulletinStream, // Sử dụng stream đã cố định, không tạo mới khi build
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
+        // 1. Trạng thái lỗi
+        if (snapshot.hasError) {
+          print("Lỗi từ Stream: ${snapshot.error}");
+          return const Center(child: Text("Đã xảy ra lỗi khi tải dữ liệu"));
+        }
+
+        // 2. Trạng thái đang tải (Chỉ hiện khi chưa có dữ liệu nào)
+        if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final pinned =
-            snapshot.data!.where((e) => e.isPinned).toList();
-        final others =
-            snapshot.data!.where((e) => !e.isPinned).toList();
+        // 3. Trạng thái không có dữ liệu
+        final data = snapshot.data ?? [];
+        if (data.isEmpty) {
+          return const Center(child: Text("Chưa có ghi chú nào"));
+        }
+
+        final pinned = data.where((b) => b.isPinned).toList();
+        final others = data.where((b) => !b.isPinned).toList();
 
         return ListView(
+          padding: const EdgeInsets.all(12),
           children: [
-            if (isAdmin) _addButton(context),
-            if (pinned.isNotEmpty) _section("📌 Ghim", pinned),
-            if (others.isNotEmpty) _section("Ghi chú khác", others),
+            if (pinned.isNotEmpty) ...[
+              const Text(
+                '📌 Ghim',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              ...pinned.map((b) => _card(context, b)),
+              const SizedBox(height: 16),
+            ],
+            if (others.isNotEmpty) ...[
+              ...others.map((b) => _card(context, b)),
+            ],
           ],
         );
       },
     );
   }
 
-  Widget _addButton(BuildContext context) {
-    return ElevatedButton(
-      onPressed: () => _openAdd(context),
-      child: const Text("+ Thêm ghi chú mới"),
-    );
-  }
-
-  Widget _section(String title, List<Bulletin> items) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 12),
-        Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        ...items.map(_card),
-      ],
-    );
-  }
-
-  Widget _card(Bulletin b) {
+  Widget _card(BuildContext context, Bulletin b) {
     return Card(
+      margin: const EdgeInsets.only(bottom: 10),
       child: ListTile(
-        title: Text(b.title),
+        title: Text(
+          b.title,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
         subtitle: Text(b.content),
-        trailing: isAdmin
-            ? IconButton(
-                icon: Icon(
-                    b.isPinned ? Icons.push_pin : Icons.push_pin_outlined),
-                onPressed: () => _service.togglePin(
-                  roomRef.collection('bulletins').doc(b.id),
-                  !b.isPinned,
-                ),
+        trailing: widget.isAdmin
+            ? PopupMenuButton<String>(
+                onSelected: (value) {
+                  if (value == 'pin') {
+                    _service.togglePin(widget.roomId, b);
+                  }
+                  if (value == 'delete') {
+                    _service.delete(widget.roomId, b.id);
+                  }
+                },
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'pin',
+                    child: Text(b.isPinned ? 'Bỏ ghim' : 'Ghim'),
+                  ),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Text('Xóa'),
+                  ),
+                ],
               )
             : null,
-      ),
-    );
-  }
-
-  void _openAdd(BuildContext context) {
-    final titleCtrl = TextEditingController();
-    final contentCtrl = TextEditingController();
-
-    showModalBottomSheet(
-      context: context,
-      builder: (_) => Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: titleCtrl, decoration: const InputDecoration(hintText: "Tiêu đề")),
-            TextField(controller: contentCtrl, decoration: const InputDecoration(hintText: "Nội dung")),
-            ElevatedButton(
-              onPressed: () {
-                _service.createBulletin(
-                  roomRef: roomRef,
-                  title: titleCtrl.text,
-                  content: contentCtrl.text,
-                  type: 'note',
-                  creatorName: 'Bạn',
-                );
-                Navigator.pop(context);
-              },
-              child: const Text("Thêm"),
-            )
-          ],
-        ),
       ),
     );
   }
