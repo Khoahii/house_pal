@@ -74,4 +74,22 @@ class BulletinService {
         .doc(id)
         .delete();
   }
+  Future<void> update(
+  String roomId,
+  String bulletinId,
+  String title,
+  String content,
+) {
+  return _db
+      .collection('rooms')
+      .doc(roomId)
+      .collection('bulletins')
+      .doc(bulletinId)
+      .update({
+    'title': title,
+    'content': content,
+    'updatedAt': FieldValue.serverTimestamp(),
+  });
+}
+
 }
