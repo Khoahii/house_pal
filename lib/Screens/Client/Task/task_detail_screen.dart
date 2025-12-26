@@ -25,15 +25,21 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final CompletionService _completionService = CompletionService();
 
-  bool _isProcessing = false; // Đổi tên từ _isLoading
+  bool _isProcessing = false;      // đang xử lý complete
+  bool _isDeleting = false;        // đang xóa
   bool _hasPopped = false;
-  bool _justCompleted = false;
+  bool _justCompleted = false;     // chỉ cho complete
+  Task? _cachedTask;
+  AppUser? _cachedCurrentUser;
 
   @override
   void initState() {
     super.initState();
     _hasPopped = false;
     _justCompleted = false;
+    _isDeleting = false;
+    _cachedTask = null;
+    _cachedCurrentUser = null;
   }
 
   // ✅ Constants để tránh rebuild
@@ -84,8 +90,13 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   Future<void> _handleDelete() async {
     if (!await _showDeleteConfirm()) return;
 
-    setState(() => _isProcessing = true);
-    
+    setState(() {
+      _isDeleting = true;
+      _isProcessing = false;
+      _justCompleted = false;
+      _cachedTask = null;
+    });
+
     try {
       await _firestore
           .collection('rooms')
@@ -95,44 +106,44 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           .delete();
 
       if (!mounted) return;
-      _showSnackBar('Đã xóa công việc thành công');
+      _showSnackBar('Đã xóa công việc thành công', isSuccess: true);
 
-      if (!_hasPopped) {
+      await Future.delayed(const Duration(milliseconds: 250));
+      if (!_hasPopped && mounted) {
         _hasPopped = true;
-        Navigator.of(context).pop();
+        Navigator.of(context).pop({'deleted': true});
       }
     } catch (e) {
       if (mounted) {
         _showSnackBar('Lỗi khi xóa: $e', isError: true);
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isProcessing = false);
+        setState(() {
+          _isDeleting = false;
+          _isProcessing = false;
+          _justCompleted = false;
+        });
       }
     }
   }
 
   // ✅ OPTIMIZED: Pop ngay, xử lý background
   Future<void> _handleCompleteTask(Task task) async {
-    // Prevent double tap
-    if (_isProcessing) return;
-    
+    if (_isProcessing || _isDeleting) return;
+
     final authProvider = Provider.of<MyAuthProvider>(context, listen: false);
     final currentUser = authProvider.currentUser;
-
     if (currentUser == null) {
       _showSnackBar('Vui lòng đăng nhập', isError: true);
       return;
     }
 
-    // ✅ ĐÁNH DẤU đang xử lý → StreamBuilder SẼ BỎ QUA updates
     setState(() {
+      _cachedTask = task;
+      _cachedCurrentUser = currentUser;
       _isProcessing = true;
-      _justCompleted = true; // ← Quan trọng
+      _justCompleted = true; // chỉ cho complete
     });
-    
+
     try {
-      // Xử lý Firestore
       await _completionService.completeTask(
         roomId: widget.roomId,
         task: task,
@@ -140,27 +151,23 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       );
 
       if (!mounted) return;
+      _showSnackBar('Hoàn thành thành công! +${task.point} điểm',
+          isSuccess: true);
 
-      // Hiện thông báo
-      _showSnackBar(
-        'Hoàn thành thành công! +${task.point} điểm',
-        isSuccess: true,
-      );
-
-      // ✅ Pop NGAY sau thông báo (không chờ StreamBuilder)
       if (!_hasPopped) {
         _hasPopped = true;
-        // Delay nhỏ để user thấy snackbar
-        await Future.delayed(const Duration(milliseconds: 300));
-        if (mounted) {
-          Navigator.of(context).pop();
-        }
+        await Future.delayed(const Duration(milliseconds: 250));
+        if (mounted) Navigator.of(context).pop({'completed': true, 'points': task.point});
       }
-      
     } catch (e) {
       if (mounted) {
         _showSnackBar('Lỗi: $e', isError: true);
-        setState(() => _isProcessing = false);
+        setState(() {
+          _isProcessing = false;
+          _justCompleted = false;
+          _cachedTask = null;
+          _cachedCurrentUser = null;
+        });
       }
     }
   }
@@ -226,10 +233,24 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             .doc(widget.assignmentId)
             .snapshots(),
         builder: (context, snapshot) {
-          // ✅ IGNORE updates khi đang complete
-          if (_justCompleted) {
-            // Vẫn hiện UI cũ, không rebuild
-            return const SizedBox.shrink();
+          // Đang delete: giữ loading nhỏ, tránh màn trắng
+          if (_isDeleting) {
+            return const Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(),
+              ),
+            );
+          }
+
+          // Đang complete: hiện cached UI (không trắng)
+          if (_justCompleted && _cachedTask != null) {
+            return _buildTaskUI(
+              task: _cachedTask!,
+              currentUser: _cachedCurrentUser,
+              isProcessing: true,
+            );
           }
 
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -240,7 +261,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             return Center(child: Text('Lỗi: ${snapshot.error}'));
           }
 
-          // Task đã bị xóa
           if (!snapshot.hasData || !snapshot.data!.exists) {
             WidgetsBinding.instance.addPostFrameCallback((_) => _popIfNeeded());
             return const SizedBox.shrink();
@@ -251,57 +271,117 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             snapshot.data!.data() as Map<String, dynamic>,
           );
 
-          final canComplete = _isCurrentUserAssignee(task, currentUser);
-
-          // Auto task completed → không còn được assign → pop
-          if (task.assignMode == 'auto' && _justCompleted && !canComplete) {
-            WidgetsBinding.instance.addPostFrameCallback((_) => _popIfNeeded());
-            return const SizedBox.shrink();
-          }
-
-          return Column(
-            children: [
-              _buildAppBar(currentUser, task),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      _assigneeCard(task),
-                      const SizedBox(height: 16),
-                      _descriptionCard(task),
-                      const SizedBox(height: 16),
-                      _detailInfoCard(task),
-                    ],
-                  ),
-                ),
-              ),
-              if (canComplete) _bottomButton(task),
-            ],
+          return _buildTaskUI(
+            task: task,
+            currentUser: currentUser,
+            isProcessing: _isProcessing,
           );
         },
       ),
     );
   }
 
-  Widget _buildAppBar(AppUser? currentUser, Task task) {
+  // ✅ TÁCH RIÊNG: Build UI
+  Widget _buildTaskUI({
+    required Task task,
+    required AppUser? currentUser,
+    required bool isProcessing,
+  }) {
+    final canComplete = _isCurrentUserAssignee(task, currentUser);
+
+    // Auto task complete → rotation làm mất assign, pop
+    if (task.assignMode == 'auto' && _justCompleted && !canComplete) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _popIfNeeded());
+      return const SizedBox.shrink();
+    }
+
+    final disableActions = isProcessing || _isDeleting;
+
+    return Column(
+      children: [
+        _buildAppBar(currentUser, task, disableActions: disableActions),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                _assigneeCard(task),
+                const SizedBox(height: 16),
+                _descriptionCard(task),
+                const SizedBox(height: 16),
+                _detailInfoCard(task),
+              ],
+            ),
+          ),
+        ),
+        if (canComplete)
+          _bottomButton(task, isProcessing: isProcessing || _isDeleting),
+      ],
+    );
+  }
+
+  // ✅ CẬP NHẬT: Add isProcessing param
+  Widget _bottomButton(Task task, {bool isProcessing = false}) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 8,
+            offset: Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        height: 48,
+        child: isProcessing
+            ? const Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF4F46E5)),
+                  ),
+                ),
+              )
+            : ElevatedButton.icon(
+                onPressed: () => _handleCompleteTask(task),
+                icon: const Icon(Icons.check_circle_outline),
+                label: const Text(
+                  'Hoàn Thành Ngay',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryColor,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildAppBar(AppUser? currentUser, Task task, {bool disableActions = false}) {
     return AppBar(
       backgroundColor: primaryColor,
       elevation: 0,
       leading: IconButton(
         icon: const Icon(Icons.arrow_back, color: Colors.white),
-        onPressed: () => Navigator.pop(context),
+        onPressed: disableActions ? null : () => Navigator.pop(context),
       ),
       title: Text(
         task.title,
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-        ),
+        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
       ),
       actions: [
-        if (currentUser?.canCreateTask ?? false)
-          _isProcessing
+        if ((currentUser?.canCreateTask ?? false))
+          disableActions
               ? const Padding(
                   padding: EdgeInsets.all(16.0),
                   child: SizedBox(
@@ -557,71 +637,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _bottomButton(Task task) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 8,
-            offset: Offset(0, -2),
-          ),
-        ],
-      ),
-      child: SizedBox(
-        width: double.infinity,
-        height: 48,
-        child: _isProcessing
-            ? Center(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          Color(0xFF4F46E5),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Đang xử lý...',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: primaryColor,
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            : ElevatedButton.icon(
-                onPressed: () => _handleCompleteTask(task),
-                icon: const Icon(Icons.check_circle_outline),
-                label: const Text(
-                  'Hoàn Thành Ngay',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryColor,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-      ),
     );
   }
 
