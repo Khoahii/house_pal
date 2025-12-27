@@ -4,43 +4,37 @@ class Bulletin {
   final String id;
   final String title;
   final String content;
-  final String type; // note | announcement
   final bool isPinned;
-
-  final DocumentReference createdBy;
-  final String creatorName;
-  final String? creatorAvatar;
-
-  final DateTime createdAt;
-  final DateTime updatedAt;
+  final DateTime? createdAt; // Thêm trường này để sắp xếp
 
   Bulletin({
     required this.id,
     required this.title,
     required this.content,
-    required this.type,
     required this.isPinned,
-    required this.createdBy,
-    required this.creatorName,
-    required this.creatorAvatar,
-    required this.createdAt,
-    required this.updatedAt,
+    this.createdAt,
   });
 
-  factory Bulletin.fromFirestore(DocumentSnapshot doc) {
+  factory Bulletin.fromDoc(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+    
+    // Xử lý chuyển đổi từ Timestamp của Firestore sang DateTime của Dart
+    DateTime? date;
+    if (data['createdAt'] != null) {
+      if (data['createdAt'] is Timestamp) {
+        date = (data['createdAt'] as Timestamp).toDate();
+      } else {
+        // Đôi khi dữ liệu mẫu hoặc dữ liệu lỗi có thể là String hoặc int
+        date = DateTime.tryParse(data['createdAt'].toString());
+      }
+    }
 
     return Bulletin(
       id: doc.id,
       title: data['title'] ?? '',
       content: data['content'] ?? '',
-      type: data['type'] ?? 'note',
-      isPinned: (data['isPinned'] ?? false) as bool,
-      createdBy: data['createdBy'],
-      creatorName: data['creatorName'] ?? '',
-      creatorAvatar: data['creatorAvatar'],
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      updatedAt: (data['updatedAt'] as Timestamp).toDate(),
+      isPinned: data['isPinned'] ?? false,
+      createdAt: date,
     );
   }
 }

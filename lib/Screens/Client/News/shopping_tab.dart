@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:house_pal/services/snack_bar_service.dart';
 import '../../../models/shopping_item.dart';
 import '../../../services/shopping_service.dart';
 import '../../../services/fund_service.dart';
@@ -59,59 +60,67 @@ class ShoppingTab extends StatelessWidget {
   }
 
   Widget _card(BuildContext context, ShoppingItem item) {
-    final done = item.linkedExpenseId != null;
+  final done = item.linkedExpenseId != null;
 
-    return Card(
-      color: done ? Colors.green.shade50 : null,
-      child: ListTile(
-        // 👉 TAP = SỬA (CHỈ KHI CHƯA TẠO EXPENSE)
-        onTap: done ? null : () => _openAddOrEditSheet(context, editItem: item),
+  return Card(
+    color: done ? Colors.green.shade50 : null,
+    child: ListTile(
+      onTap: done ? null : () => _openAddOrEditSheet(context, editItem: item),
 
-        title: Text(
-          item.title,
-          style: TextStyle(
-            decoration: done ? TextDecoration.lineThrough : null,
-          ),
+      title: Text(
+        item.title,
+        style: TextStyle(
+          decoration: done ? TextDecoration.lineThrough : null,
         ),
-
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Quỹ: ${item.fundName}"),
-            if (item.note != null)
-              Text(
-                item.note!,
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-          ],
-        ),
-
-        trailing: done
-            ? const Icon(Icons.check_circle, color: Colors.green)
-            : PopupMenuButton<String>(
-                onSelected: (value) async {
-                  if (value == 'edit') {
-                    _openAddOrEditSheet(context, editItem: item);
-                  }
-
-                  if (value == 'delete') {
-                    await roomRef
-                        .collection('shopping_items')
-                        .doc(item.id)
-                        .delete();
-                  }
-                },
-                itemBuilder: (_) => const [
-                  PopupMenuItem(value: 'edit', child: Text('Sửa')),
-                  PopupMenuItem(
-                    value: 'delete',
-                    child: Text('Xoá', style: TextStyle(color: Colors.red)),
-                  ),
-                ],
-              ),
       ),
-    );
-  }
+
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("Quỹ: ${item.fundName}"),
+          if (item.note != null)
+            Text(
+              item.note!,
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+        ],
+      ),
+
+      trailing: PopupMenuButton<String>(
+        onSelected: (value) async {
+          if (value == 'edit' && !done) {
+            _openAddOrEditSheet(context, editItem: item);
+          }
+
+          if (value == 'delete') {
+            await roomRef
+                .collection('shopping_items')
+                .doc(item.id)
+                .delete();
+            if (context.mounted) {
+              SnackBarService.showSuccess(context, "Đã xoá mục mua sắm");
+            }
+          }
+        },
+        itemBuilder: (_) => [
+          if (!done)
+            const PopupMenuItem(
+              value: 'edit',
+              child: Text('Sửa'),
+            ),
+          const PopupMenuItem(
+            value: 'delete',
+            child: Text(
+              'Xoá',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    ), 
+  );
+}
+
 
   void _openAddOrEditSheet(BuildContext context, {ShoppingItem? editItem}) {
     final isEdit = editItem != null;
@@ -228,13 +237,14 @@ class ShoppingTab extends StatelessWidget {
                         if (title.isEmpty ||
                             selectedFundId == null ||
                             selectedFundName == null) {
+                          SnackBarService.showError(context, "Vui lòng nhập đủ thông tin");
                           return;
                         }
 
                         if (isEdit) {
                           await roomRef
                               .collection('shopping_items')
-                              .doc(editItem!.id)
+                              .doc(editItem.id)
                               .update({
                                 'title': title,
                                 'note': note.isEmpty ? null : note,
