@@ -512,6 +512,16 @@ class _MainTaskState extends State<MainTask> {
                                              'https://i.pravatar.cc/150?img=3';
                           }
 
+                          final isManual = (assignMode == 'manual');
+
+                          // Mới: Chỉ định = tím, Tự gán = vàng
+                          final Color modeColor = isManual
+                              ? const Color(0xFF4F46E5)  // tím (giữ đúng primary của app)
+                              : const Color(0xFFF59E0B); // vàng (amber 500, dễ nhìn trên nền trắng)
+
+                          final IconData modeIcon = isManual ? Icons.person : Icons.bolt;
+                          final String modeLabel = isManual ? 'Chỉ định' : 'Tự gán';
+
                           return TaskCardItem(
                             difficulty: diffLabel,
                             difficultyColor: diffColor,
@@ -532,6 +542,9 @@ class _MainTaskState extends State<MainTask> {
                                 ),
                               );
                             },
+                            modeLabel: modeLabel,
+                            modeIcon: modeIcon,
+                            modeColor: modeColor,
                           );
                         },
                       );
@@ -640,6 +653,11 @@ class TaskCardItem extends StatelessWidget {
   final String assigneeAvatar;
   final VoidCallback onDetailTap;
 
+  // Chế độ phân công
+  final String modeLabel;   // 'Chỉ định' | 'Tự gán'
+  final IconData modeIcon;  // Icons.person | Icons.bolt (hoặc Icons.flash_on_rounded)
+  final Color modeColor;    // Xanh dương cho manual | Tím cho auto
+
   const TaskCardItem({
     super.key,
     required this.difficulty,
@@ -651,7 +669,11 @@ class TaskCardItem extends StatelessWidget {
     required this.assignee,
     required this.assigneeAvatar,
     required this.onDetailTap,
+    required this.modeLabel,
+    required this.modeIcon,
+    required this.modeColor,
   });
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -662,23 +684,17 @@ class TaskCardItem extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFF3F4F6)),
         boxShadow: const [
-          BoxShadow(
-            color: Color(0x0C000000),
-            blurRadius: 4,
-            offset: Offset(0, 2),
-          ),
+          BoxShadow(color: Color(0x0C000000), blurRadius: 4, offset: Offset(0, 2)),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header: Độ khó | Điểm | Badge ghost góc phải
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: difficultyBg,
                   borderRadius: BorderRadius.circular(20),
@@ -696,9 +712,29 @@ class TaskCardItem extends StatelessWidget {
               Text(
                 points,
                 style: const TextStyle(
-                  color: Color(0xFF4F46E5),
+                  color: Color(0xFF4F46E5), // giữ màu tím như ban đầu
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              // Badge kiểu ghost: không nền, không viền
+              Tooltip(
+                message: modeLabel,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(modeIcon, size: 16, color: modeColor),
+                    const SizedBox(width: 6),
+                    Text(
+                      modeLabel,
+                      style: TextStyle(
+                        color: modeColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -745,13 +781,12 @@ class TaskCardItem extends StatelessWidget {
                   ),
                 ],
               ),
-             TextButton(
+              TextButton(
                 onPressed: onDetailTap,
                 style: TextButton.styleFrom(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  backgroundColor: const Color(0xFFEEF2FF),
-                  foregroundColor: const Color(0xFF4F46E5),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  backgroundColor: const Color(0xFFEEF2FF),  
+                  foregroundColor: const Color(0xFF4F46E5),  
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
