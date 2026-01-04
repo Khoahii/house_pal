@@ -173,52 +173,65 @@ class _NoteTabState extends State<NoteTab> {
 
   Widget _card(BuildContext context, Bulletin b) {
   return Card(
-    color: b.isPinned ? Colors.purple.shade50 : null,
+    elevation: 3, // Thêm shadow cho card
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    color: b.isPinned ? Colors.purple.shade50 : Colors.white,
+    margin: const EdgeInsets.symmetric(vertical: 6),
     child: ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      leading: Icon(
+        b.isPinned ? Icons.push_pin : Icons.sticky_note_2_outlined,
+        color: b.isPinned ? Colors.purple : Colors.blueGrey,
+      ),
       title: Text(
         b.title,
-        style: const TextStyle(fontWeight: FontWeight.bold),
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 16,
+          color: b.isPinned ? Colors.purple.shade700 : Colors.black87,
+        ),
       ),
-      subtitle: Text(b.content),
-
+      subtitle: Text(
+        b.content,
+        style: const TextStyle(fontSize: 14, height: 1.3),
+      ),
       trailing: PopupMenuButton<String>(
+        icon: const Icon(Icons.more_vert),
         onSelected: (value) async {
           if (value == 'edit') {
-            NoteTab.showEditDialog(
-              context,
-              widget.roomId,
-              b,
-            );
-          }
-
-          if (value == 'pin') {
+            NoteTab.showEditDialog(context, widget.roomId, b);
+          } else if (value == 'pin') {
             _service.togglePin(widget.roomId, b);
-          }
-
-          if (value == 'delete') {
+          } else if (value == 'delete') {
             await _service.delete(widget.roomId, b.id);
             if (context.mounted) {
-              // nếu bạn có snackbar service thì gọi ở đây
-              // SnackBarService.showSuccess(context, "Đã xoá ghi chú");
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Đã xoá ghi chú')),
+              );
             }
           }
         },
         itemBuilder: (_) => [
           const PopupMenuItem(
             value: 'edit',
-            child: Text('Sửa'),
+            child: Row(
+              children: [Icon(Icons.edit, size: 18), SizedBox(width: 8), Text('Sửa')],
+            ),
           ),
           PopupMenuItem(
             value: 'pin',
-            child: Text(
-              b.isPinned ? 'Bỏ ghim' : 'Ghim',
+            child: Row(
+              children: [
+                Icon(b.isPinned ? Icons.push_pin : Icons.push_pin_outlined, size: 18),
+                const SizedBox(width: 8),
+                Text(b.isPinned ? 'Bỏ ghim' : 'Ghim'),
+              ],
             ),
           ),
           const PopupMenuItem(
             value: 'delete',
-            child: Text(
-              'Xoá',
-              style: TextStyle(color: Colors.red),
+            child: Row(
+              children: [Icon(Icons.delete, color: Colors.red, size: 18), SizedBox(width: 8), Text('Xoá')],
             ),
           ),
         ],
@@ -226,6 +239,7 @@ class _NoteTabState extends State<NoteTab> {
     ),
   );
 }
+
 
 
 }

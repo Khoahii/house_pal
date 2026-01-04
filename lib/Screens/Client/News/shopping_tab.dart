@@ -37,43 +37,71 @@ class ShoppingTab extends StatelessWidget {
   }
 
   Widget _addButton(BuildContext context) {
-    return ElevatedButton(
-      onPressed: () => _openAddOrEditSheet(context),
-      child: const Text("+ Thêm mua sắm"),
-    );
-  }
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    child: SizedBox(
+      width: double.infinity,
+      height: 46,
+      child: ElevatedButton.icon(
+        icon: const Icon(Icons.add),
+        label: const Text(" Thêm mua sắm"),
+        style: ElevatedButton.styleFrom(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+        onPressed: () => _openAddOrEditSheet(context),
+      ),
+    ),
+  );
+}
 
-  Widget _section(
-    BuildContext context,
-    String title,
-    List<ShoppingItem> items,
-  ) {
-    if (items.isEmpty) return const SizedBox.shrink();
-    return Column(
+Widget _section(
+  BuildContext context,
+  String title,
+  List<ShoppingItem> items,
+) {
+  if (items.isEmpty) return const SizedBox.shrink();
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+    child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 12),
-        Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        Row(
+          children: [
+            Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(width: 6),
+            
+          ],
+        ),
+        const SizedBox(height: 8),
         ...items.map((e) => _card(context, e)),
       ],
-    );
-  }
+    ),
+  );
+}
 
-  Widget _card(BuildContext context, ShoppingItem item) {
+Widget _card(BuildContext context, ShoppingItem item) {
   final done = item.linkedExpenseId != null;
 
   return Card(
-    color: done ? Colors.green.shade50 : null,
+    elevation: 3,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    color: done ? Colors.green.shade50 : Colors.white,
+    margin: const EdgeInsets.symmetric(vertical: 6),
     child: ListTile(
       onTap: done ? null : () => _openAddOrEditSheet(context, editItem: item),
-
+      // Xóa leading icon hoàn toàn
       title: Text(
         item.title,
         style: TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 16,
           decoration: done ? TextDecoration.lineThrough : null,
+          color: done ? Colors.green.shade800 : Colors.black87,
         ),
       ),
-
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -85,18 +113,15 @@ class ShoppingTab extends StatelessWidget {
             ),
         ],
       ),
-
       trailing: PopupMenuButton<String>(
+        icon: const Icon(Icons.more_vert),
         onSelected: (value) async {
           if (value == 'edit' && !done) {
             _openAddOrEditSheet(context, editItem: item);
           }
 
           if (value == 'delete') {
-            await roomRef
-                .collection('shopping_items')
-                .doc(item.id)
-                .delete();
+            await roomRef.collection('shopping_items').doc(item.id).delete();
             if (context.mounted) {
               SnackBarService.showSuccess(context, "Đã xoá mục mua sắm");
             }
@@ -106,20 +131,30 @@ class ShoppingTab extends StatelessWidget {
           if (!done)
             const PopupMenuItem(
               value: 'edit',
-              child: Text('Sửa'),
+              child: Row(
+                children: [
+                  Icon(Icons.edit, size: 18),
+                  SizedBox(width: 8),
+                  Text('Sửa'),
+                ],
+              ),
             ),
           const PopupMenuItem(
             value: 'delete',
-            child: Text(
-              'Xoá',
-              style: TextStyle(color: Colors.red),
+            child: Row(
+              children: [
+                Icon(Icons.delete, color: Colors.red, size: 18),
+                SizedBox(width: 8),
+                Text('Xoá'),
+              ],
             ),
           ),
         ],
       ),
-    ), 
+    ),
   );
 }
+
 
 
   void _openAddOrEditSheet(BuildContext context, {ShoppingItem? editItem}) {
