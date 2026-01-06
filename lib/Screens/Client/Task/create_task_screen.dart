@@ -9,11 +9,13 @@ import '../../../services/task_service.dart';
 class CreateTaskScreen extends StatefulWidget {
   final Room currentRoom;
   final AppUser currentUser;
+  final Task? editingTask;  // ✅ MỚI: null = create, có value = edit
 
   const CreateTaskScreen({
     super.key,
     required this.currentRoom,
     required this.currentUser,
+    this.editingTask,
   });
 
   @override
@@ -35,11 +37,31 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   // ✅ Anti-spam flags
   bool _isSaving = false;
   bool _hasPopped = false;
+  
+  // ✅ MỚI: Biến lưu task gốc (nếu edit mode)
+  late Task? _originalTask;
+  late bool _isEditMode;
 
   @override
   void initState() {
     super.initState();
+    _originalTask = widget.editingTask;
+    _isEditMode = widget.editingTask != null;
     _loadRoomMembers();
+    
+    // ✅ MỚI: Nếu edit mode, điền dữ liệu vào form
+    if (_isEditMode && _originalTask != null) {
+      _titleController.text = _originalTask!.title;
+      _descController.text = _originalTask!.description;
+      _difficulty = _originalTask!.difficulty;
+      _point = _originalTask!.point;
+      _frequency = _originalTask!.frequency;
+      _assignMode = _originalTask!.assignMode;
+      // ✅ FIX: Đặt assignMode trước, rồi mới assign manualAssignedTo
+      if (_originalTask!.assignMode == 'manual') {
+        _manualAssignedTo = _originalTask!.manualAssignedTo;
+      }
+    }
   }
 
   // ✅ THÊM: Dispose controllers
@@ -77,7 +99,11 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   }
 
   void _saveTask() async {
-    if (_titleController.text.isEmpty) return;
+    // ✅ FIX: Validate title không rỗng
+    if (_titleController.text.trim().isEmpty) {
+      SnackBarService.showError(context, 'Vui lòng nhập tên công việc');
+      return;
+    }
     
     if (_isSaving) return;
 
@@ -85,42 +111,67 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
 
     try {
       final task = Task(
-        title: _titleController.text,
-        description: _descController.text,
+        id: _isEditMode ? _originalTask!.id : '', // ✅ FIX: ID phải có khi edit
+        title: _titleController.text.trim(),
+        description: _descController.text.trim(),
         difficulty: _difficulty,
         point: _point,
         frequency: _frequency,
-        assignMode: _assignMode,
-        rotationOrder: null,  // ✅ Service xử lý
-        rotationIndex: null,  // ✅ Service xử lý
-        manualAssignedTo: _assignMode == 'manual' ? _manualAssignedTo : null,
-        createdBy: FirebaseFirestore.instance
-            .collection('users')
-            .doc(widget.currentUser.uid),
-        createdAt: Timestamp.now(),
+        assignMode: _isEditMode ? _originalTask!.assignMode : _assignMode, // ✅ FIX: Giữ nguyên assignMode khi edit
+        rotationOrder: _isEditMode ? _originalTask!.rotationOrder : null,  // ✅ Giữ nguyên khi edit
+        rotationIndex: _isEditMode ? _originalTask!.rotationIndex : null,  // ✅ Giữ nguyên khi edit
+        manualAssignedTo: _isEditMode 
+            ? _originalTask!.manualAssignedTo  // ✅ FIX: Giữ nguyên assignee khi edit
+            : (_assignMode == 'manual' ? _manualAssignedTo : null),
+        createdBy: _isEditMode 
+            ? _originalTask!.createdBy 
+            : FirebaseFirestore.instance.collection('users').doc(widget.currentUser.uid),
+        createdAt: _isEditMode ? _originalTask!.createdAt : Timestamp.now(),
         updatedAt: Timestamp.now(),
       );
 
-      await TaskService().createTask(widget.currentRoom.id, task);
+      // ✅ MỚI: Xử lý create vs update
+      if (_isEditMode) {
+        // ✅ FIX: Validate task.id trước khi update
+        if (task.id.isEmpty) {
+          throw Exception('Task ID không hợp lệ');
+        }
+        // Edit mode: update task
+        await TaskService().updateTask(
+          widget.currentRoom.id,
+          task,
+        );
 
-      if (mounted) {
-        SnackBarService.showSuccess(context, "Đã tạo việc mới thành công!");
+        if (mounted) {
+          SnackBarService.showSuccess(context, "Đã cập nhật việc thành công!");
+        }
+      } else {
+        // Create mode: create new task
+        await TaskService().createTask(widget.currentRoom.id, task);
+
+        if (mounted) {
+          SnackBarService.showSuccess(context, "Đã tạo việc mới thành công!");
+        }
       }
 
       if (!_hasPopped) {
         _hasPopped = true;
-        Navigator.pop(context);
+        if (mounted) {
+          Navigator.pop(context);
+        }
       }
     } catch (e) {
-      // ✅ SỬA: Dùng SnackBarService.showError thay vì ScaffoldMessenger
+      debugPrint('Error saving task: $e');
       if (mounted) {
-        String errorMsg = 'Tạo việc thất bại';
+        String errorMsg = _isEditMode ? 'Cập nhật việc thất bại' : 'Tạo việc thất bại';
         if (e.toString().contains('network')) {
           errorMsg = 'Kiểm tra kết nối mạng';
         } else if (e.toString().contains('permission')) {
-          errorMsg = 'Bạn không có quyền tạo việc';
+          errorMsg = 'Bạn không có quyền thực hiện hành động này';
         } else if (e.toString().contains('already exists')) {
           errorMsg = 'Công việc này đã tồn tại';
+        } else if (e.toString().contains('Task ID không hợp lệ')) {
+          errorMsg = 'Lỗi: ID công việc không hợp lệ';
         }
 
         SnackBarService.showError(context, errorMsg);
@@ -143,9 +194,10 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
           icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Tạo việc nhà mới',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+        title: Text(
+          // ✅ MỚI: Động title dựa theo mode
+          _isEditMode ? 'Chỉnh sửa việc nhà' : 'Tạo việc nhà mới',
+          style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
       ),
@@ -169,17 +221,44 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
             const SizedBox(height: 12),
             _buildFrequencySelector(),
             const SizedBox(height: 20),
-            _buildLabel('Phân công'),
-            const SizedBox(height: 12),
-            _buildAutoAssignCard(),
-            const SizedBox(height: 12),
-            const Text(
-              'Hoặc chỉ định thành viên:',
-              style: TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.w500, color: Colors.grey),
-            ),
-            const SizedBox(height: 12),
-            _buildMemberList(),
+            // ✅ MỚI: Ẩn phần "Phân công" khi edit (giữ nguyên assignee)
+            if (!_isEditMode) ...[
+              _buildLabel('Phân công'),
+              const SizedBox(height: 12),
+              _buildAutoAssignCard(),
+              const SizedBox(height: 12),
+              const Text(
+                'Hoặc chỉ định thành viên:',
+                style: TextStyle(
+                    fontSize: 14, fontWeight: FontWeight.w500, color: Colors.grey),
+              ),
+              const SizedBox(height: 12),
+              _buildMemberList(),
+            ] else ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.blue.shade300),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info, color: Colors.blue.shade700),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Phân công không thể thay đổi khi chỉnh sửa',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.blue.shade700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 32),
             _buildSaveButton(),
           ],
@@ -363,11 +442,15 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   }
 
   Widget _buildMemberList() {
+    // ✅ FIX: Check null và isEmpty
     if (roomMembers.isEmpty) {
       return const Center(
-        child: Text(
-          'Không có thành viên để phân công',
-          style: TextStyle(color: Colors.grey),
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 20),
+          child: Text(
+            'Không có thành viên để phân công',
+            style: TextStyle(color: Colors.grey),
+          ),
         ),
       );
     }
@@ -479,9 +562,10 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
               )
-            : const Text(
-                'Lưu Việc Nhà',
-                style: TextStyle(fontWeight: FontWeight.w600),
+            : Text(
+                // ✅ MỚI: Động button text dựa theo mode
+                _isEditMode ? 'Cập Nhật' : 'Lưu Việc Nhà',
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
       ),
     );
