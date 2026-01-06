@@ -39,7 +39,10 @@ class _MainTaskState extends State<MainTask> {
   AppUser? currentUser;
   Room? currentRoom;
   bool isLoadingUser = true;
-  String _filterType = 'my_tasks'; // 'my_tasks' hoặc 'all_tasks'
+  String _filterType = 'my_tasks';
+  
+  final Map<String, Map<String, dynamic>> _userCache = {};
+  late String _currentUserId;
 
   @override
   void initState() {
@@ -50,28 +53,97 @@ class _MainTaskState extends State<MainTask> {
   Future<void> _loadCurrentUser() async {
     final firebaseUser = FirebaseAuth.instance.currentUser;
 
+
     if (firebaseUser == null) {
-      setState(() => isLoadingUser = false);
+      setState(() {
+        currentUser = null;
+        currentRoom = null; 
+        isLoadingUser = false;
+        _userCache.clear();
+        _filterType = 'my_tasks';
+      });
       return;
     }
+
+    _currentUserId = firebaseUser.uid;
+    
+    _userCache.clear();
 
     final userRef = FirebaseFirestore.instance.collection('users').doc(firebaseUser.uid);
     final doc = await userRef.get();
 
+    AppUser? newUser;
     if (doc.exists) {
-      currentUser = AppUser.fromFirestore(doc);
+      newUser = AppUser.fromFirestore(doc);
     }
 
-   final roomQuery = await FirebaseFirestore.instance
-          .collection('rooms')
-          .where('members', arrayContains: userRef)
-          .limit(1)
-          .get();
+    Room? newRoom;
+    final roomQuery = await FirebaseFirestore.instance
+        .collection('rooms')
+        .where('members', arrayContains: userRef)
+        .limit(1)
+        .get();
 
-      if (roomQuery.docs.isNotEmpty) {
-        currentRoom = Room.fromFirestore(roomQuery.docs.first);
+    if (roomQuery.docs.isNotEmpty) {
+      newRoom = Room.fromFirestore(roomQuery.docs.first);
+    }
+
+    setState(() {
+      currentUser = newUser;
+      currentRoom = newRoom;
+      isLoadingUser = false;
+    });
+  }
+
+  DocumentReference? _getAssigneeReference(Map<String, dynamic> taskData) {
+    final assignMode = taskData['assignMode'] ?? 'auto';
+
+    if (assignMode == 'manual') {
+      return taskData['manualAssignedTo'] as DocumentReference?;
+    } else if (assignMode == 'auto') {
+      final rotationOrder = taskData['rotationOrder'] as List<dynamic>?;
+      final rotationIndex = taskData['rotationIndex'] as int?;
+
+      if (rotationOrder != null && rotationOrder.isNotEmpty) {
+        final safeIndex = (rotationIndex ?? 0) % rotationOrder.length;
+        return rotationOrder[safeIndex] as DocumentReference;
       }
-    setState(() => isLoadingUser = false);
+    }
+    return null;
+  }
+
+  // Hàm cache assignee data
+  Future<Map<String, dynamic>> _getAssigneeData(DocumentReference? ref) async {
+    if (ref == null) {
+      return {
+        'name': 'Chưa phân công',
+        'avatar': 'https://i.pravatar.cc/150?img=3',
+      };
+    }
+    // Kiểm tra cache trước
+    if (_userCache.containsKey(ref.id)) {
+      return _userCache[ref.id]!;
+    }
+
+    try {
+      final doc = await ref.get();
+      if (doc.exists) {
+        final userData = doc.data() as Map<String, dynamic>;
+        final assigneeData = {
+          'name': userData['name'] ?? 'Thành viên',
+          'avatar': userData['avatarUrl'] ?? userData['avatar'] ?? 'https://i.pravatar.cc/150?img=3',
+        };
+        // Lưu vào cache
+        _userCache[ref.id] = assigneeData;
+        return assigneeData;
+      }
+    } catch (e) {
+      // Error handling - silently fall back to default
+    }
+    return {
+      'name': 'Chưa phân công',
+      'avatar': 'https://i.pravatar.cc/150?img=3',
+    };
   }
 
   Widget _buildPopupMenuItem({
@@ -110,8 +182,6 @@ class _MainTaskState extends State<MainTask> {
     );
   }
 
-
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -122,57 +192,67 @@ class _MainTaskState extends State<MainTask> {
         ),
         centerTitle: false,
         elevation: 0,
-        backgroundColor: const Color(0xFF4F46E5), // Màu xanh Primary
+        backgroundColor: const Color(0xFF4F46E5),
         foregroundColor: Colors.white,
       ),
-
       floatingActionButton: isLoadingUser
           ? null
           : (currentUser != null && currentUser!.canCreateTask && currentRoom != null)
-          ? FloatingActionButton(
-            heroTag: 'createTask',
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => CreateTaskScreen(
-                      currentUser: currentUser!,
-                      currentRoom: currentRoom!,
-                    ),
-                  ),
-                );
-              },
-              backgroundColor: const Color(0xFF4F46E5),
-              elevation: 4,
-              child: const Icon(Icons.add, color: Colors.white, size: 28),
-            )
-          : null,
-
-      // ============ BODY ============
+              ? FloatingActionButton(
+                  heroTag: 'createTask',
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => CreateTaskScreen(
+                          currentUser: currentUser!,
+                          currentRoom: currentRoom!,
+                        ),
+                      ),
+                    );
+                  },
+                  backgroundColor: const Color(0xFF4F46E5),
+                  elevation: 4,
+                  child: const Icon(Icons.add, color: Colors.white, size: 28),
+                )
+              : null,
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Bảng xếp hạng
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF4F46E5), Color(0xFF6366F1)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.15),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
+            GestureDetector(
+              onTap: currentRoom != null
+                  ? () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => RankingScreen(
+                            roomId: currentRoom!.id,
+                          ),
+                        ),
+                      );
+                    }
+                  : null,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF4F46E5), Color(0xFF6366F1)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                ],
-              ),
-              child: Column(
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.15),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Column(
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -209,8 +289,6 @@ class _MainTaskState extends State<MainTask> {
                     ],
                   ),
                   const SizedBox(height: 16),
-
-                  // StreamBuilder để lấy top 3 từ Firestore
                   if (currentRoom != null)
                     StreamBuilder<List<LeaderboardScore>>(
                       stream: LeaderboardService().getTop3(currentRoom!.id),
@@ -247,11 +325,9 @@ class _MainTaskState extends State<MainTask> {
                         }
 
                         final top3 = snapshot.data!;
-                        
                         return Row(
                           mainAxisAlignment: MainAxisAlignment.spaceAround,
                           children: [
-                            // Rank 1 (giữa)
                             if (top3.isNotEmpty)
                               LeaderboardItem(
                                 name: top3[0].userName ?? 'User',
@@ -260,8 +336,6 @@ class _MainTaskState extends State<MainTask> {
                               )
                             else
                               const SizedBox(width: 60),
-                            
-                            // Rank 2 (trái)
                             if (top3.length >= 2)
                               LeaderboardItem(
                                 name: top3[1].userName ?? 'User',
@@ -269,8 +343,6 @@ class _MainTaskState extends State<MainTask> {
                               )
                             else
                               const SizedBox(width: 60),
-                            
-                            // Rank 3 (phải)
                             if (top3.length >= 3)
                               LeaderboardItem(
                                 name: top3[2].userName ?? 'User',
@@ -298,10 +370,8 @@ class _MainTaskState extends State<MainTask> {
                 ],
               ),
             ),
-
+            ),
             const SizedBox(height: 32),
-
-            // Tiêu đề danh sách
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -379,10 +449,7 @@ class _MainTaskState extends State<MainTask> {
                 ),
               ],
             ),
-
             const SizedBox(height: 16),
-
-            // Hiển thị danh sách Task từ Firestore
             if (currentRoom != null)
               StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
@@ -406,31 +473,15 @@ class _MainTaskState extends State<MainTask> {
 
                   var tasks = snapshot.data!.docs;
 
-                  // Lọc tasks theo filter type
+      
                   if (_filterType == 'my_tasks' && currentUser != null) {
                     final currentUserRef = FirebaseFirestore.instance
                         .collection('users')
-                        .doc(FirebaseAuth.instance.currentUser!.uid);
-                    
+                        .doc(_currentUserId);
+
                     tasks = tasks.where((taskDoc) {
                       final data = taskDoc.data() as Map<String, dynamic>;
-                      final assignMode = data['assignMode'] ?? 'auto';
-                      
-                      DocumentReference? assigneeRef;
-                      
-                      if (assignMode == 'manual') {
-                        assigneeRef = data['manualAssignedTo'] as DocumentReference?;
-                      } else if (assignMode == 'auto') {
-                        // Lấy từ rotationOrder
-                        final rotationOrder = data['rotationOrder'] as List<dynamic>?;
-                        final rotationIndex = data['rotationIndex'] as int?;
-                        
-                        if (rotationOrder != null && rotationOrder.isNotEmpty) {
-                          final safeIndex = (rotationIndex ?? 0) % rotationOrder.length;
-                          assigneeRef = rotationOrder[safeIndex] as DocumentReference;
-                        }
-                      }
-                      
+                      final assigneeRef = _getAssigneeReference(data);
                       return assigneeRef?.path == currentUserRef.path;
                     }).toList();
                   }
@@ -440,7 +491,7 @@ class _MainTaskState extends State<MainTask> {
                       child: Padding(
                         padding: const EdgeInsets.all(20.0),
                         child: Text(
-                          _filterType == 'my_tasks' 
+                          _filterType == 'my_tasks'
                               ? 'Bạn chưa có công việc nào được phân công.'
                               : 'Chưa có công việc nào.',
                           textAlign: TextAlign.center,
@@ -461,7 +512,7 @@ class _MainTaskState extends State<MainTask> {
                     itemBuilder: (context, index) {
                       final taskDoc = tasks[index];
                       final data = taskDoc.data() as Map<String, dynamic>;
-                      
+
                       final difficulty = data['difficulty'] ?? 'easy';
                       Color diffColor;
                       Color diffBg;
@@ -484,54 +535,38 @@ class _MainTaskState extends State<MainTask> {
                       final assignMode = data['assignMode'] ?? 'auto';
                       DocumentReference? assigneeRef;
 
-                      // Xác định assigneeRef dựa vào assignMode
                       if (assignMode == 'manual') {
                         assigneeRef = data['manualAssignedTo'] as DocumentReference?;
                       } else if (assignMode == 'auto') {
-                        // Lấy từ rotationOrder
                         final rotationOrder = data['rotationOrder'] as List<dynamic>?;
                         final rotationIndex = data['rotationIndex'] as int?;
-                        
+
                         if (rotationOrder != null && rotationOrder.isNotEmpty) {
                           final safeIndex = (rotationIndex ?? 0) % rotationOrder.length;
                           assigneeRef = rotationOrder[safeIndex] as DocumentReference;
                         }
                       }
 
-                      return FutureBuilder<DocumentSnapshot>(
-                        future: assigneeRef?.get(),
+                      final isManual = (assignMode == 'manual');
+                      final Color modeColor = isManual
+                          ? const Color(0xFF4F46E5)
+                          : const Color(0xFFF59E0B);
+                      final IconData modeIcon = isManual ? Icons.person : Icons.bolt;
+                      final String modeLabel = isManual ? 'Chỉ định' : 'Tự gán';
+
+                      return FutureBuilder<Map<String, dynamic>>(
+                        future: _getAssigneeData(assigneeRef),
                         builder: (context, userSnapshot) {
                           String assigneeName = 'Chưa phân công';
                           String assigneeAvatar = 'https://i.pravatar.cc/150?img=3';
 
-                          if (userSnapshot.hasData && userSnapshot.data!.exists) {
-                            final userData = userSnapshot.data!.data() as Map<String, dynamic>;
-                            assigneeName = userData['name'] ?? 'Thành viên';
-                            assigneeAvatar = userData['avatarUrl'] ??
-                                             userData['avatar'] ??
-                                             'https://i.pravatar.cc/150?img=3';
+                          if (userSnapshot.hasData) {
+                            assigneeName = userSnapshot.data!['name'] ?? 'Chưa phân công';
+                            assigneeAvatar = userSnapshot.data!['avatar'] ?? 'https://i.pravatar.cc/150?img=3';
                           }
 
-                          final isManual = (assignMode == 'manual');
-
-                          // Mới: Chỉ định = tím, Tự gán = vàng
-                          final Color modeColor = isManual
-                              ? const Color(0xFF4F46E5)  // tím (giữ đúng primary của app)
-                              : const Color(0xFFF59E0B); // vàng (amber 500, dễ nhìn trên nền trắng)
-
-                          final IconData modeIcon = isManual ? Icons.person : Icons.bolt;
-                          final String modeLabel = isManual ? 'Chỉ định' : 'Tự gán';
-
-                          return TaskCardItem(
-                            difficulty: diffLabel,
-                            difficultyColor: diffColor,
-                            difficultyBg: diffBg,
-                            points: '+${data['point'] ?? 0}',
-                            title: data['title'] ?? 'Không tên',
-                            description: data['description'] ?? '',
-                            assignee: assigneeName,
-                            assigneeAvatar: assigneeAvatar,
-                            onDetailTap: () {
+                          return GestureDetector(
+                            onTap: () {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -542,9 +577,30 @@ class _MainTaskState extends State<MainTask> {
                                 ),
                               );
                             },
-                            modeLabel: modeLabel,
-                            modeIcon: modeIcon,
-                            modeColor: modeColor,
+                            child: TaskCardItem(
+                              difficulty: diffLabel,
+                              difficultyColor: diffColor,
+                              difficultyBg: diffBg,
+                              points: '+${data['point'] ?? 0}',
+                              title: data['title'] ?? 'Không tên',
+                              description: data['description'] ?? '',
+                              assignee: assigneeName,
+                              assigneeAvatar: assigneeAvatar,
+                              onDetailTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => TaskDetailScreen(
+                                      roomId: currentRoom!.id,
+                                      assignmentId: taskDoc.id,
+                                    ),
+                                  ),
+                                );
+                              },
+                              modeLabel: modeLabel,
+                              modeIcon: modeIcon,
+                              modeColor: modeColor,
+                            ),
                           );
                         },
                       );
@@ -552,7 +608,6 @@ class _MainTaskState extends State<MainTask> {
                   );
                 },
               ),
-
             const SizedBox(height: 100),
           ],
         ),
@@ -561,18 +616,20 @@ class _MainTaskState extends State<MainTask> {
   }
 }
 
-// ---------------- CÁC WIDGET CON (GIỮ NGUYÊN) ----------------
+// ============ Các Widget Con ============
 
 class LeaderboardItem extends StatelessWidget {
   final String name;
   final String image;
   final bool isWinner;
+
   const LeaderboardItem({
     super.key,
     required this.name,
     required this.image,
     this.isWinner = false,
   });
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -619,7 +676,9 @@ class LeaderboardItem extends StatelessWidget {
 class FilterTab extends StatelessWidget {
   final String text;
   final bool isSelected;
+
   const FilterTab({super.key, required this.text, required this.isSelected});
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -652,11 +711,9 @@ class TaskCardItem extends StatelessWidget {
   final String assignee;
   final String assigneeAvatar;
   final VoidCallback onDetailTap;
-
-  // Chế độ phân công
-  final String modeLabel;   // 'Chỉ định' | 'Tự gán'
-  final IconData modeIcon;  // Icons.person | Icons.bolt (hoặc Icons.flash_on_rounded)
-  final Color modeColor;    // Xanh dương cho manual | Tím cho auto
+  final String modeLabel;
+  final IconData modeIcon;
+  final Color modeColor;
 
   const TaskCardItem({
     super.key,
@@ -690,7 +747,6 @@ class TaskCardItem extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header: Độ khó | Điểm | Badge ghost góc phải
           Row(
             children: [
               Container(
@@ -712,13 +768,12 @@ class TaskCardItem extends StatelessWidget {
               Text(
                 points,
                 style: const TextStyle(
-                  color: Color(0xFF4F46E5), // giữ màu tím như ban đầu
+                  color: Color(0xFF4F46E5),
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const Spacer(),
-              // Badge kiểu ghost: không nền, không viền
               Tooltip(
                 message: modeLabel,
                 child: Row(
@@ -785,8 +840,8 @@ class TaskCardItem extends StatelessWidget {
                 onPressed: onDetailTap,
                 style: TextButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  backgroundColor: const Color(0xFFEEF2FF),  
-                  foregroundColor: const Color(0xFF4F46E5),  
+                  backgroundColor: const Color(0xFFEEF2FF),
+                  foregroundColor: const Color(0xFF4F46E5),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
