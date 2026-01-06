@@ -565,16 +565,8 @@ class _MainTaskState extends State<MainTask> {
                             assigneeAvatar = userSnapshot.data!['avatar'] ?? 'https://i.pravatar.cc/150?img=3';
                           }
 
-                          return TaskCardItem(
-                            difficulty: diffLabel,
-                            difficultyColor: diffColor,
-                            difficultyBg: diffBg,
-                            points: '+${data['point'] ?? 0}',
-                            title: data['title'] ?? 'Không tên',
-                            description: data['description'] ?? '',
-                            assignee: assigneeName,
-                            assigneeAvatar: assigneeAvatar,
-                            onDetailTap: () {
+                          return GestureDetector(
+                            onTap: () {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -585,9 +577,30 @@ class _MainTaskState extends State<MainTask> {
                                 ),
                               );
                             },
-                            modeLabel: modeLabel,
-                            modeIcon: modeIcon,
-                            modeColor: modeColor,
+                            child: TaskCardItem(
+                              difficulty: diffLabel,
+                              difficultyColor: diffColor,
+                              difficultyBg: diffBg,
+                              points: '+${data['point'] ?? 0}',
+                              title: data['title'] ?? 'Không tên',
+                              description: data['description'] ?? '',
+                              assignee: assigneeName,
+                              assigneeAvatar: assigneeAvatar,
+                              onDetailTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => TaskDetailScreen(
+                                      roomId: currentRoom!.id,
+                                      assignmentId: taskDoc.id,
+                                    ),
+                                  ),
+                                );
+                              },
+                              modeLabel: modeLabel,
+                              modeIcon: modeIcon,
+                              modeColor: modeColor,
+                            ),
                           );
                         },
                       );
