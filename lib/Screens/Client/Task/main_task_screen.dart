@@ -90,11 +90,13 @@ class _MainTaskState extends State<MainTask> {
       newRoom = Room.fromFirestore(roomQuery.docs.first);
     }
 
-    setState(() {
-      currentUser = newUser;
-      currentRoom = newRoom;
-      isLoadingUser = false;
-    });
+   if (mounted) {
+      setState(() {
+        currentUser = newUser;
+        currentRoom = newRoom;
+        isLoadingUser = false;
+      });
+    }
   }
 
   DocumentReference? _getAssigneeReference(Map<String, dynamic> taskData) {
