@@ -51,11 +51,12 @@ class _NewsScreenState extends State<NewsScreen> {
     if (memberSnap.exists && memberSnap.data() != null) {
       role = memberSnap['role'] ?? 'member';
     }
-
-    setState(() {
-      roomRef = loadedRoomRef;
-      isAdmin = role == 'admin' || role == 'leader';
-    });
+if (mounted) {
+      setState(() {
+        roomRef = loadedRoomRef;
+        isAdmin = role == 'admin' || role == 'leader';
+      });
+    }
   } catch (e) {
     debugPrint('❌ Load room/role error: $e');
 

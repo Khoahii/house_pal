@@ -55,13 +55,15 @@ class _MainTaskState extends State<MainTask> {
 
 
     if (firebaseUser == null) {
-      setState(() {
-        currentUser = null;
-        currentRoom = null; 
-        isLoadingUser = false;
-        _userCache.clear();
-        _filterType = 'my_tasks';
-      });
+     if (mounted) {
+        setState(() {
+          currentUser = null;
+          currentRoom = null;
+          isLoadingUser = false;
+          _userCache.clear();
+          _filterType = 'my_tasks';
+        });
+      }
       return;
     }
 
