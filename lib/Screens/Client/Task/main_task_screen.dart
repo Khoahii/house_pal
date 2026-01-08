@@ -55,13 +55,15 @@ class _MainTaskState extends State<MainTask> {
 
 
     if (firebaseUser == null) {
-      setState(() {
-        currentUser = null;
-        currentRoom = null; 
-        isLoadingUser = false;
-        _userCache.clear();
-        _filterType = 'my_tasks';
-      });
+     if (mounted) {
+        setState(() {
+          currentUser = null;
+          currentRoom = null;
+          isLoadingUser = false;
+          _userCache.clear();
+          _filterType = 'my_tasks';
+        });
+      }
       return;
     }
 
@@ -88,11 +90,13 @@ class _MainTaskState extends State<MainTask> {
       newRoom = Room.fromFirestore(roomQuery.docs.first);
     }
 
-    setState(() {
-      currentUser = newUser;
-      currentRoom = newRoom;
-      isLoadingUser = false;
-    });
+   if (mounted) {
+      setState(() {
+        currentUser = newUser;
+        currentRoom = newRoom;
+        isLoadingUser = false;
+      });
+    }
   }
 
   DocumentReference? _getAssigneeReference(Map<String, dynamic> taskData) {
