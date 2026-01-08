@@ -55,75 +55,27 @@ class _MainScreenState extends State<MainScreen> {
             _currentIndex = index;
           });
         },
+        selectedIconTheme: const IconThemeData(size: 26),
+        unselectedIconTheme: const IconThemeData(size: 24),
         items: [
           BottomNavigationBarItem(
-            icon: Image.asset(
-              'assets/images/bottom_icon_home.png',
-              width: 24,
-              height: 24,
-            ),
-            activeIcon: Image.asset(
-              'assets/images/bottom_icon_home.png',
-              width: 24,
-              height: 24,
-              color: const Color(0xFF8687E7),
-            ),
+            icon: Icon(Icons.home_rounded),
             label: 'Trang chủ',
           ),
           BottomNavigationBarItem(
-            icon: Image.asset(
-              'assets/images/bottom_icon_task.png',
-              width: 24,
-              height: 24,
-            ),
-            activeIcon: Image.asset(
-              'assets/images/bottom_icon_task.png',
-              width: 24,
-              height: 24,
-              color: const Color(0xFF8687E7),
-            ),
+            icon: Icon(Icons.task_alt_rounded),
             label: 'Việc nhà',
           ),
           BottomNavigationBarItem(
-            icon: Image.asset(
-              'assets/images/bottom_icon_fund.png',
-              width: 24,
-              height: 24,
-            ),
-            activeIcon: Image.asset(
-              'assets/images/bottom_icon_fund.png',
-              width: 24,
-              height: 24,
-              color: const Color(0xFF8687E7),
-            ),
+            icon: Icon(Icons.account_balance_wallet_rounded),
             label: 'Quỹ chung',
           ),
           BottomNavigationBarItem(
-            icon: Image.asset(
-              'assets/images/bottom_icon_news.png',
-              width: 24,
-              height: 24,
-            ),
-            activeIcon: Image.asset(
-              'assets/images/bottom_icon_news.png',
-              width: 24,
-              height: 24,
-              color: const Color(0xFF8687E7),
-            ),
+            icon: Icon(Icons.article_rounded),
             label: 'Bảng tin',
           ),
           BottomNavigationBarItem(
-            icon: Image.asset(
-              'assets/images/bottom_icon_user.png',
-              width: 24,
-              height: 24,
-            ),
-            activeIcon: Image.asset(
-              'assets/images/bottom_icon_user.png',
-              width: 24,
-              height: 24,
-              color: const Color(0xFF8687E7),
-            ),
+            icon: Icon(Icons.person_rounded),
             label: 'Profile',
           ),
         ],
