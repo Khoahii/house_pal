@@ -27,7 +27,7 @@ class ExpenseService {
   }
 
   // =========================
-  // CREATE EXPENSE (Updated)
+  // CREATE EXPENSE
   // =========================
   Future<String> createExpense({
     required String fundId,

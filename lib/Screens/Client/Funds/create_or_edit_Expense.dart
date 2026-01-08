@@ -247,10 +247,10 @@ class _CreateOrEditExpenseScreenState extends State<CreateOrEditExpenseScreen> {
                   const SizedBox(height: 16),
                   _buildDatePicker(),
                   const SizedBox(height: 20),
-                  Text("Chọn icon chi tiêu", style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),),
+                  Text(
+                    "Chọn icon chi tiêu",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 8),
                   _buildCategory(),
                   const SizedBox(height: 20),
@@ -387,10 +387,11 @@ class _CreateOrEditExpenseScreenState extends State<CreateOrEditExpenseScreen> {
             leading: Checkbox(
               value: isSelected,
               onChanged: (v) => setState(() {
-                if (v == true)
+                if (v == true) {
                   _selectedMembers.add(ref);
-                else if (_selectedMembers.length > 1)
+                } else if (_selectedMembers.length > 1) {
                   _selectedMembers.remove(ref);
+                }
               }),
             ),
             title: Text(u.name),
