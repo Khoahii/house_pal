@@ -68,12 +68,12 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: const Color(0xFFFFFFFF),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          icon: const Icon(Icons.arrow_back_ios, color: Color.fromARGB(255, 0, 0, 0)),
           onPressed: () {},
         ),
       ),
@@ -91,7 +91,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const Text(
                   'Đăng nhập',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: Colors.black,
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
                   ),
@@ -103,13 +103,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 // Email field
                 TextField(
                   controller: _emailController,
-                  style: const TextStyle(color: Colors.white),
+                  style: const TextStyle(color: Color.fromARGB(235, 0, 0, 0)),
                   keyboardType: TextInputType.emailAddress,
                   decoration: InputDecoration(
                     hintText: 'Nhập email',
                     hintStyle: const TextStyle(color: Colors.grey),
                     filled: true,
-                    fillColor: const Color(0xFF2A2A2A),
+                    fillColor: const Color.fromARGB(255, 245, 245, 245),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
@@ -127,12 +127,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 TextField(
                   controller: _passwordController,
                   obscureText: true,
-                  style: const TextStyle(color: Colors.white),
+                  style: const TextStyle(color: Color.fromARGB(255, 0, 0, 0)),
                   decoration: InputDecoration(
                     hintText: 'mật khẩu',
                     hintStyle: const TextStyle(color: Colors.grey),
                     filled: true,
-                    fillColor: const Color(0xFF2A2A2A),
+                    fillColor: const Color.fromARGB(255, 245, 245, 245),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
@@ -202,12 +202,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   onPressed: () {},
                   icon: const Icon(
                     Icons.facebook,
-                    color: Colors.white,
+                    color: Color.fromARGB(255, 0, 0, 0),
                     size: 28,
                   ),
                   label: const Text(
                     'Đăng nhập với Facebook',
-                    style: TextStyle(color: Colors.white, fontSize: 16),
+                    style: TextStyle(color: Color.fromARGB(255, 0, 0, 0), fontSize: 16),
                   ),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Color(0xFF9C27B0)),
@@ -223,10 +223,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 // Apple button
                 OutlinedButton.icon(
                   onPressed: () {},
-                  icon: const Icon(Icons.apple, color: Colors.white, size: 28),
+                  icon: const Icon(Icons.apple, color: Color.fromARGB(255, 0, 0, 0), size: 28),
                   label: const Text(
                     'Đăng nhập với Apple',
-                    style: TextStyle(color: Colors.white, fontSize: 16),
+                    style: TextStyle(color: Color.fromARGB(255, 0, 0, 0), fontSize: 16),
                   ),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Color(0xFF9C27B0)),
