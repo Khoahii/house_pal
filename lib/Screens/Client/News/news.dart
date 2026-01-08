@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'note_tab.dart';
 import 'shopping_tab.dart';
 
@@ -13,6 +14,7 @@ class NewsScreen extends StatefulWidget {
 
 class _NewsScreenState extends State<NewsScreen> {
   int tabIndex = 0;
+
   DocumentReference? roomRef;
   bool isAdmin = false;
 
@@ -23,16 +25,48 @@ class _NewsScreenState extends State<NewsScreen> {
   }
 
   Future<void> _loadRoomAndRole() async {
+  try {
     final uid = FirebaseAuth.instance.currentUser!.uid;
-    final userDoc =
-        await FirebaseFirestore.instance.collection('users').doc(uid).get();
+
+    // 1️⃣ Lấy user
+    final userDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .get();
+
+    if (!userDoc.exists || userDoc['roomId'] == null) {
+      throw Exception('User chưa có roomId');
+    }
+
+    final DocumentReference loadedRoomRef = userDoc['roomId'];
+
+    // 2️⃣ Lấy member (AN TOÀN)
+    final memberSnap = await loadedRoomRef
+        .collection('members')
+        .doc(uid)
+        .get();
+
+    String role = 'member'; // default an toàn
+
+    if (memberSnap.exists && memberSnap.data() != null) {
+      role = memberSnap['role'] ?? 'member';
+    }
 
     setState(() {
-      roomRef = userDoc['roomId'];
-      isAdmin = userDoc['role'] == 'admin' ||
-          userDoc['role'] == 'room_leader';
+      roomRef = loadedRoomRef;
+      isAdmin = role == 'admin' || role == 'leader';
+    });
+  } catch (e) {
+    debugPrint('❌ Load room/role error: $e');
+
+    // fallback: vẫn cho vào app, KHÔNG treo
+    setState(() {
+      roomRef = null;
+      isAdmin = false;
     });
   }
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -50,39 +84,68 @@ class _NewsScreenState extends State<NewsScreen> {
         centerTitle: true,
         title: const Column(
           children: [
-            Text("🏠 HousePal",
-                style: TextStyle(
-                    color: Colors.deepPurple,
-                    fontWeight: FontWeight.bold)),
+            Text(
+              "🏠 HousePal",
+              style: TextStyle(
+                color: Colors.deepPurple,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             SizedBox(height: 2),
-            Text("Trợ lý Ngôi nhà Chung",
-                style: TextStyle(fontSize: 12, color: Colors.grey)),
+            Text(
+              "Trợ lý Ngôi nhà Chung",
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
           ],
         ),
       ),
+
+      // ✅ FAB CHỈ CHO TAB NOTE
+      floatingActionButton: tabIndex == 0
+          ? FloatingActionButton(
+              onPressed: () {
+                // NOTE TAB chỉ cần roomId = roomRef.id
+                NoteTab.showAddDialog(context, roomRef!.id);
+              },
+              child: const Icon(Icons.add),
+            )
+          : null,
+
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("Bảng tin Chung",
-                style:
-                    TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const Text("Thông tin & Ghi chú",
-                style: TextStyle(fontSize: 13, color: Colors.grey)),
+            const Text(
+              "Bảng tin Chung",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const Text(
+              "Thông tin & Ghi chú",
+              style: TextStyle(fontSize: 13, color: Colors.grey),
+            ),
             const SizedBox(height: 12),
             _tabSelector(),
             const SizedBox(height: 12),
             Expanded(
               child: tabIndex == 0
-                  ? NoteTab(roomRef: roomRef!, isAdmin: isAdmin)
-                  : ShoppingTab(roomRef: roomRef!),
+                  // ✅ NOTE dùng roomId
+                  ? NoteTab(
+                      roomId: roomRef!.id,
+                      isAdmin: isAdmin,
+                    )
+                  // ✅ SHOPPING GIỮ NGUYÊN
+                  : ShoppingTab(
+                      roomRef: roomRef!,
+                    ),
             ),
           ],
         ),
       ),
     );
   }
+
+  // ================= TAB SELECTOR =================
 
   Widget _tabSelector() {
     return Container(
@@ -112,10 +175,12 @@ class _NewsScreenState extends State<NewsScreen> {
             borderRadius: BorderRadius.circular(999),
           ),
           alignment: Alignment.center,
-          child: Text(label,
-              style: TextStyle(
-                  fontWeight:
-                      selected ? FontWeight.bold : FontWeight.normal)),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
         ),
       ),
     );

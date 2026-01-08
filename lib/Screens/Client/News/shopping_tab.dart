@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:house_pal/services/snack_bar_service.dart';
 import '../../../models/shopping_item.dart';
 import '../../../services/shopping_service.dart';
 import '../../../services/fund_service.dart';
@@ -36,82 +37,125 @@ class ShoppingTab extends StatelessWidget {
   }
 
   Widget _addButton(BuildContext context) {
-    return ElevatedButton(
-      onPressed: () => _openAddOrEditSheet(context),
-      child: const Text("+ Thêm mua sắm"),
-    );
-  }
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    child: SizedBox(
+      width: double.infinity,
+      height: 46,
+      child: ElevatedButton.icon(
+        icon: const Icon(Icons.add),
+        label: const Text(" Thêm mua sắm"),
+        style: ElevatedButton.styleFrom(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+        onPressed: () => _openAddOrEditSheet(context),
+      ),
+    ),
+  );
+}
 
-  Widget _section(
-    BuildContext context,
-    String title,
-    List<ShoppingItem> items,
-  ) {
-    if (items.isEmpty) return const SizedBox.shrink();
-    return Column(
+Widget _section(
+  BuildContext context,
+  String title,
+  List<ShoppingItem> items,
+) {
+  if (items.isEmpty) return const SizedBox.shrink();
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+    child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 12),
-        Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-        ...items.map((e) => _card(context, e)),
-      ],
-    );
-  }
-
-  Widget _card(BuildContext context, ShoppingItem item) {
-    final done = item.linkedExpenseId != null;
-
-    return Card(
-      color: done ? Colors.green.shade50 : null,
-      child: ListTile(
-        // 👉 TAP = SỬA (CHỈ KHI CHƯA TẠO EXPENSE)
-        onTap: done ? null : () => _openAddOrEditSheet(context, editItem: item),
-
-        title: Text(
-          item.title,
-          style: TextStyle(
-            decoration: done ? TextDecoration.lineThrough : null,
-          ),
-        ),
-
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        Row(
           children: [
-            Text("Quỹ: ${item.fundName}"),
-            if (item.note != null)
-              Text(
-                item.note!,
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
-              ),
+            Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(width: 6),
+            
           ],
         ),
+        const SizedBox(height: 8),
+        ...items.map((e) => _card(context, e)),
+      ],
+    ),
+  );
+}
 
-        trailing: done
-            ? const Icon(Icons.check_circle, color: Colors.green)
-            : PopupMenuButton<String>(
-                onSelected: (value) async {
-                  if (value == 'edit') {
-                    _openAddOrEditSheet(context, editItem: item);
-                  }
+Widget _card(BuildContext context, ShoppingItem item) {
+  final done = item.linkedExpenseId != null;
 
-                  if (value == 'delete') {
-                    await roomRef
-                        .collection('shopping_items')
-                        .doc(item.id)
-                        .delete();
-                  }
-                },
-                itemBuilder: (_) => const [
-                  PopupMenuItem(value: 'edit', child: Text('Sửa')),
-                  PopupMenuItem(
-                    value: 'delete',
-                    child: Text('Xoá', style: TextStyle(color: Colors.red)),
-                  ),
+  return Card(
+    elevation: 3,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    color: done ? Colors.green.shade50 : Colors.white,
+    margin: const EdgeInsets.symmetric(vertical: 6),
+    child: ListTile(
+      onTap: done ? null : () => _openAddOrEditSheet(context, editItem: item),
+      // Xóa leading icon hoàn toàn
+      title: Text(
+        item.title,
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 16,
+          decoration: done ? TextDecoration.lineThrough : null,
+          color: done ? Colors.green.shade800 : Colors.black87,
+        ),
+      ),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("Quỹ: ${item.fundName}"),
+          if (item.note != null)
+            Text(
+              item.note!,
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+        ],
+      ),
+      trailing: PopupMenuButton<String>(
+        icon: const Icon(Icons.more_vert),
+        onSelected: (value) async {
+          if (value == 'edit' && !done) {
+            _openAddOrEditSheet(context, editItem: item);
+          }
+
+          if (value == 'delete') {
+            await roomRef.collection('shopping_items').doc(item.id).delete();
+            if (context.mounted) {
+              SnackBarService.showSuccess(context, "Đã xoá mục mua sắm");
+            }
+          }
+        },
+        itemBuilder: (_) => [
+          if (!done)
+            const PopupMenuItem(
+              value: 'edit',
+              child: Row(
+                children: [
+                  Icon(Icons.edit, size: 18),
+                  SizedBox(width: 8),
+                  Text('Sửa'),
                 ],
               ),
+            ),
+          const PopupMenuItem(
+            value: 'delete',
+            child: Row(
+              children: [
+                Icon(Icons.delete, color: Colors.red, size: 18),
+                SizedBox(width: 8),
+                Text('Xoá'),
+              ],
+            ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
+
+
 
   void _openAddOrEditSheet(BuildContext context, {ShoppingItem? editItem}) {
     final isEdit = editItem != null;
@@ -228,13 +272,14 @@ class ShoppingTab extends StatelessWidget {
                         if (title.isEmpty ||
                             selectedFundId == null ||
                             selectedFundName == null) {
+                          SnackBarService.showError(context, "Vui lòng nhập đủ thông tin");
                           return;
                         }
 
                         if (isEdit) {
                           await roomRef
                               .collection('shopping_items')
-                              .doc(editItem!.id)
+                              .doc(editItem.id)
                               .update({
                                 'title': title,
                                 'note': note.isEmpty ? null : note,
