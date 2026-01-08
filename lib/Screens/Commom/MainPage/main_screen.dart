@@ -15,14 +15,25 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
 
-  // Danh sách các trang
-  final List<Widget> _pages = [
-    ClientHome(),
-    MainTaskScreen(),
-    MainFundScreen(),
-    NewsScreen(),
-    ProfileScreen(),
-  ];
+  void _changeTab(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+  }
+
+  late final List<Widget> _pages;
+
+  @override
+  void initState() {
+    super.initState();
+    _pages = [
+      ClientHome(onViewAllTasks: () => _changeTab(1)),
+      MainTaskScreen(),
+      MainFundScreen(),
+      NewsScreen(),
+      ProfileScreen(),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
