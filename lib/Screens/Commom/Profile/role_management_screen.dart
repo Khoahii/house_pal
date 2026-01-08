@@ -124,7 +124,7 @@ class _RoleManagementScreenState extends State<RoleManagementScreen> {
                           Text(
                             me.role == 'admin'
                                 ? "Danh sách (mọi phòng) — không hiển thị Admin"
-                                : "Danh sách phòng của bạn — gồm Member & Room Leader",
+                                : "Danh sách thành viên trong phòng của bạn",
                             style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
