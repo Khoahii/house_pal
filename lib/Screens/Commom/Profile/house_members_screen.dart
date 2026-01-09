@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:house_pal/models/app_user.dart';
+import 'package:house_pal/models/user/app_user.dart';
 
 // Constants
 class _RoleConfig {

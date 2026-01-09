@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'create_task_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:house_pal/models/app_user.dart';
+import 'package:house_pal/models/user/app_user.dart';
 import 'package:house_pal/Screens/Client/Task/ranking_screen.dart';
 import 'package:house_pal/Screens/Client/Task/task_detail_screen.dart';
-import 'package:house_pal/models/room.dart';
-import 'package:house_pal/services/leaderboard_service.dart';
-import 'package:house_pal/models/leaderboard_score.dart';
-import 'package:house_pal/services/snack_bar_service.dart';
+import 'package:house_pal/models/room/room.dart';
+import 'package:house_pal/services/task/leaderboard_service.dart';
+import 'package:house_pal/models/task/leaderboard_score.dart';
+import 'package:house_pal/services/notify/snack_bar_service.dart';
 
 // ============ App Colors Constants ============
 class AppColors {

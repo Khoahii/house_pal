@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../models/app_user.dart';
-import '../services/auth_service.dart';
+import '../models/user/app_user.dart';
+import '../services/auth/auth_service.dart';
 
 /*
  * Nhiệm vụ là lưu thông user toàn cục để dùng ở mọi screen 

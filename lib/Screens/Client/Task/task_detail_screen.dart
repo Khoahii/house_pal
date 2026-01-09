@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:house_pal/providers/auth_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:house_pal/models/task_model.dart';
-import 'package:house_pal/services/completion_service.dart';
+import 'package:house_pal/models/task/task_model.dart';
+import 'package:house_pal/services/task/completion_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:house_pal/models/app_user.dart';
+import 'package:house_pal/models/user/app_user.dart';
 import 'package:house_pal/Screens/Client/Task/create_task_screen.dart';
-import 'package:house_pal/models/room.dart';
-import 'package:house_pal/services/snack_bar_service.dart';
+import 'package:house_pal/models/room/room.dart';
+import 'package:house_pal/services/notify/snack_bar_service.dart';
 
 class TaskDetailScreen extends StatefulWidget {
   final String roomId;

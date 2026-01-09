@@ -1,12 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../models/room.dart';
+import '../../models/room/room.dart';
 
 class RoomService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String currentUserId = FirebaseAuth.instance.currentUser!.uid;
 
-  // 1. Tạo phòng mới (chỉ leader hoặc admin mới được)
+  // 1. Tạo phòng mới
   Future<Room> createRoom(String roomName) async {
     final roomRef = _firestore.collection('rooms').doc();
     final userRef = _firestore.collection('users').doc(currentUserId);
@@ -14,14 +14,8 @@ class RoomService {
     await roomRef.set({
       'name': roomName,
       'code': _generateRoomCode(),
-      'members': [userRef],
+      'members': [],
       'createdAt': FieldValue.serverTimestamp(),
-    });
-
-    await userRef.update({
-      'role': 'room_leader',
-      'roomId': roomRef,
-      'updatedAt': FieldValue.serverTimestamp(),
     });
 
     final doc = await roomRef.get();
