@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:house_pal/models/task_model.dart';
-import 'package:house_pal/models/app_user.dart';
-import 'package:house_pal/models/completion.dart';
-import 'package:house_pal/services/leaderboard_service.dart';
+import 'package:house_pal/models/task/task_model.dart';
+import 'package:house_pal/models/user/app_user.dart';
+import 'package:house_pal/models/task/completion.dart';
+import 'package:house_pal/services/task/leaderboard_service.dart';
 
 class CompletionService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;

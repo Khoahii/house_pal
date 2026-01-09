@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../models/bulletin.dart';
+import '../../models/note/bulletin.dart';
 
 class BulletinService {
   final _db = FirebaseFirestore.instance;

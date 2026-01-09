@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:house_pal/models/app_user.dart';
-import 'package:house_pal/models/leaderboard_score.dart';
-import 'package:house_pal/models/task_model.dart';
+import 'package:house_pal/models/user/app_user.dart';
+import 'package:house_pal/models/task/leaderboard_score.dart';
+import 'package:house_pal/models/task/task_model.dart';
 import 'package:house_pal/providers/auth_provider.dart';
-import 'package:house_pal/services/completion_service.dart';
-import 'package:house_pal/services/fund_service.dart';
-import 'package:house_pal/services/leaderboard_service.dart';
-import 'package:house_pal/services/task_service.dart';
+import 'package:house_pal/services/task/completion_service.dart';
+import 'package:house_pal/services/fund/fund_service.dart';
+import 'package:house_pal/services/task/leaderboard_service.dart';
+import 'package:house_pal/services/task/task_service.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 

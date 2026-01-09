@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:house_pal/models/app_user.dart';
-import 'package:house_pal/models/room.dart';
+import 'package:house_pal/Screens/Commom/MainPage/main_screen.dart';
+import 'package:house_pal/models/user/app_user.dart';
+import 'package:house_pal/models/room/room.dart';
 import 'package:house_pal/providers/auth_provider.dart';
-import 'package:house_pal/services/room_service.dart';
+import 'package:house_pal/services/room/room_service.dart';
 import 'package:provider/provider.dart';
 
 class JoinRoomScreen extends StatelessWidget {
@@ -247,13 +248,23 @@ class RoomCard extends StatelessWidget {
   void _joinRoomConfirmed(BuildContext context) async {
     try {
       await RoomService().joinRoomByCode(room.code);
+
+      // Refresh user data to get the new roomId
+      final authProvider = Provider.of<MyAuthProvider>(context, listen: false);
+      await authProvider.refreshUser();
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text("Đã tham gia phòng: ${room.name}"),
           backgroundColor: Colors.green,
         ),
       );
-      Navigator.pop(context);
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (context) => MainScreen(),
+        ),
+        (Route<dynamic> route) => false,
+      );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),

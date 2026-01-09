@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:house_pal/services/snack_bar_service.dart';
-import '../../../models/shopping_item.dart';
-import '../../../services/shopping_service.dart';
-import '../../../services/fund_service.dart';
-import '../../../models/fund.dart';
+import 'package:house_pal/services/notify/snack_bar_service.dart';
+import '../../../models/note/shopping_item.dart';
+import '../../../services/note/shopping_service.dart';
+import '../../../services/fund/fund_service.dart';
+import '../../../models/fund/fund.dart';
 import 'package:house_pal/Screens/Client/Funds/create_or_edit_Expense.dart';
 
 class ShoppingTab extends StatelessWidget {

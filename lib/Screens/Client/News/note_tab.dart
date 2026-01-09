@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../models/bulletin.dart';
-import '../../../services/bulletin_service.dart';
+import '../../../models/note/bulletin.dart';
+import '../../../services/note/bulletin_service.dart';
 
 class NoteTab extends StatefulWidget {
   final String roomId;

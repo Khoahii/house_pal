@@ -1,12 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../models/room.dart';
+import '../../models/room/room.dart';
 
 class RoomService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final String currentUserId = FirebaseAuth.instance.currentUser!.uid;
 
-  // 1. Tạo phòng mới (chỉ leader hoặc admin mới được)
+  // 1. Tạo phòng mới
   Future<Room> createRoom(String roomName) async {
     final roomRef = _firestore.collection('rooms').doc();
 
@@ -15,15 +15,8 @@ class RoomService {
     await roomRef.set({
       'name': roomName,
       'code': code,
-      'members': [_firestore.collection('users').doc(currentUserId)],
+      'members': [],
       'createdAt': FieldValue.serverTimestamp(),
-    });
-
-    // Tự động gán mình làm room_leader
-    await _firestore.collection('users').doc(currentUserId).update({
-      'role': 'room_leader',
-      'roomId': roomRef,
-      'updatedAt': FieldValue.serverTimestamp(),
     });
 
     final doc = await roomRef.get();
@@ -31,7 +24,7 @@ class RoomService {
   }
 
   // Sinh mã code ngẫu nhiên 8 ký tự (A-Z0-9)
-String _generateRoomCode() {
+  String _generateRoomCode() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     final random = DateTime.now().millisecondsSinceEpoch;
     final code = List.generate(
@@ -55,7 +48,7 @@ String _generateRoomCode() {
       throw "Mã phòng không tồn tại!";
     }
 
-    final roomDoc = query.docs.first; //- lấy ra phòng để check 
+    final roomDoc = query.docs.first; //- lấy ra phòng để check
     final roomRef = roomDoc.reference;
     final members = List<DocumentReference>.from(roomDoc['members']);
 

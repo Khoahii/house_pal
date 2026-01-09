@@ -1,10 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
-import 'package:house_pal/models/app_user.dart';
-import 'package:house_pal/models/expense.dart';
-import 'package:house_pal/models/fund.dart';
-import 'package:house_pal/services/user_service.dart';
+import 'package:house_pal/models/user/app_user.dart';
+import 'package:house_pal/models/fund/expense.dart';
+import 'package:house_pal/models/fund/fund.dart';
+import 'package:house_pal/services/user/user_service.dart';
 
 class ExpenseService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;

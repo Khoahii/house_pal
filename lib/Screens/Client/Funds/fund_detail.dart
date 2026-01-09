@@ -4,12 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:house_pal/Screens/Client/Funds/components/block_avatar.dart';
 import 'package:house_pal/Screens/Client/Funds/create_or_edit_Expense.dart';
 import 'package:house_pal/Screens/Client/Funds/fund_debt_screen.dart';
-import 'package:house_pal/models/app_user.dart';
-import 'package:house_pal/models/expense.dart';
-import 'package:house_pal/models/fund.dart';
-import 'package:house_pal/services/expense_service.dart';
-import 'package:house_pal/services/snack_bar_service.dart';
-import 'package:house_pal/services/user_service.dart';
+import 'package:house_pal/models/user/app_user.dart';
+import 'package:house_pal/models/fund/expense.dart';
+import 'package:house_pal/models/fund/fund.dart';
+import 'package:house_pal/services/fund/expense_service.dart';
+import 'package:house_pal/services/notify/snack_bar_service.dart';
+import 'package:house_pal/services/user/user_service.dart';
 import 'package:intl/intl.dart';
 
 class FundDetailScreen extends StatefulWidget {

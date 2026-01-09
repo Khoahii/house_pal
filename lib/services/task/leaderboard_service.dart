@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/leaderboard_month.dart';
-import '../models/leaderboard_score.dart';
+import '../../models/task/leaderboard_month.dart';
+import '../../models/task/leaderboard_score.dart';
 
 class LeaderboardService {
   // Singleton pattern
