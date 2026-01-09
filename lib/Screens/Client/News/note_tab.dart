@@ -19,50 +19,116 @@ class NoteTab extends StatefulWidget {
   // THÊM GHI CHÚ
   // =======================
   static void showAddDialog(BuildContext context, String roomId) {
-    final titleCtrl = TextEditingController();
-    final contentCtrl = TextEditingController();
-    final service = BulletinService();
+  final titleCtrl = TextEditingController();
+  final contentCtrl = TextEditingController();
+  final service = BulletinService();
 
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Thêm ghi chú"),
-        content: Column(
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => Dialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Header
+            Row(
+              children: const [
+                Icon(Icons.sticky_note_2, color: Colors.teal),
+                SizedBox(width: 8),
+                Text(
+                  "Thêm ghi chú",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 16),
+
+            // Title field
             TextField(
               controller: titleCtrl,
-              decoration: const InputDecoration(labelText: "Tiêu đề"),
+              decoration: InputDecoration(
+                labelText: "Tiêu đề",
+                filled: true,
+                fillColor: Colors.grey.shade100,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+              ),
             ),
+
+            const SizedBox(height: 12),
+
+            // Content field
             TextField(
               controller: contentCtrl,
-              decoration: const InputDecoration(labelText: "Nội dung"),
-              maxLines: 3,
+              maxLines: 4,
+              decoration: InputDecoration(
+                labelText: "Nội dung",
+                filled: true,
+                fillColor: Colors.grey.shade100,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+              ),
             ),
+
+            const SizedBox(height: 20),
+
+            // Actions
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("Hủy"),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.teal,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    onPressed: () {
+                      if (titleCtrl.text.isNotEmpty) {
+                        service.add(
+                          roomId,
+                          titleCtrl.text,
+                          contentCtrl.text,
+                        );
+                        Navigator.pop(context);
+                      }
+                    },
+                    child: const Text(
+                      "Lưu",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
+            )
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Hủy"),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (titleCtrl.text.isNotEmpty) {
-                service.add(
-                  roomId,
-                  titleCtrl.text,
-                  contentCtrl.text,
-                );
-                Navigator.pop(context);
-              }
-            },
-            child: const Text("Lưu"),
-          ),
-        ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   // =======================
   // SỬA GHI CHÚ
