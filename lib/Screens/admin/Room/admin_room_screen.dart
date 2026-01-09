@@ -228,6 +228,7 @@ class _AdminRoomScreenState extends State<AdminRoomScreen> {
   }
 
   // --- DANH SÁCH THÀNH VIÊN TRONG PHÒNG ---
+  // --- DANH SÁCH THÀNH VIÊN TRONG PHÒNG ---
   Widget _buildMemberList(Room room) {
     if (room.members.isEmpty) {
       return const Padding(
@@ -243,6 +244,8 @@ class _AdminRoomScreenState extends State<AdminRoomScreen> {
           builder: (context, snapshot) {
             if (!snapshot.hasData) return const SizedBox.shrink();
             final user = snapshot.data!;
+            final bool isLeader = user.role == 'room_leader';
+
             return ListTile(
               leading: CircleAvatar(
                 backgroundImage: user.avatarUrl != null
@@ -250,13 +253,47 @@ class _AdminRoomScreenState extends State<AdminRoomScreen> {
                     : null,
                 child: user.avatarUrl == null ? Text(user.name[0]) : null,
               ),
-              title: Text(user.name),
-              subtitle: Text(
-                user.role == 'room_leader' ? 'Trưởng phòng' : 'Thành viên',
+              title: Row(
+                children: [
+                  Text(
+                    user.name,
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                  if (isLeader) ...[
+                    const SizedBox(width: 6),
+                    const Icon(
+                      Icons.stars_rounded,
+                      color: Colors.amber,
+                      size: 18,
+                    ),
+                  ],
+                ],
               ),
+              subtitle: Text(isLeader ? 'Trưởng phòng' : 'Thành viên'),
               trailing: PopupMenuButton<String>(
                 onSelected: (value) => _onMemberAction(value, user, room),
                 itemBuilder: (context) => [
+                  // Nút thay đổi quyền (Role)
+                  PopupMenuItem(
+                    value: 'change_role',
+                    child: Row(
+                      children: [
+                        Icon(
+                          isLeader
+                              ? Icons.person_remove_alt_1
+                              : Icons.verified_user,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          isLeader
+                              ? 'Gỡ quyền Trưởng phòng'
+                              : 'Đặt làm Trưởng phòng',
+                        ),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuDivider(),
                   const PopupMenuItem(
                     value: 'kick',
                     child: Text('Xóa khỏi phòng'),
@@ -278,9 +315,41 @@ class _AdminRoomScreenState extends State<AdminRoomScreen> {
   }
 
   // --- LOGIC XỬ LÝ ACTION USER ---
+  // --- LOGIC XỬ LÝ ACTION USER ---
   void _onMemberAction(String action, AppUser user, Room room) async {
-    if (action == 'kick') {
-      bool confirm = await _showConfirmDialog('Đuổi ${user.name} khỏi phòng?');
+    // 1. XỬ LÝ THAY ĐỔI ROLE (MEMBER <-> ROOM_LEADER)
+    if (action == 'change_role') {
+      final String newRole = (user.role == 'room_leader')
+          ? 'member'
+          : 'room_leader';
+      final String confirmMsg = newRole == 'room_leader'
+          ? 'Chỉ định ${user.name} làm Trưởng phòng?'
+          : 'Hạ quyền Trưởng phòng của ${user.name}?';
+
+      bool confirm = await _showConfirmDialog(confirmMsg);
+      if (confirm) {
+        try {
+          await _db.collection('users').doc(user.uid).update({
+            'role': newRole,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+          if (mounted) {
+            setState(() {}); // Refresh để FutureBuilder load lại data mới nhất
+            SnackBarService.showSuccess(
+              context,
+              'Đã cập nhật vai trò của ${user.name}',
+            );
+          }
+        } catch (e) {
+          if (mounted) SnackBarService.showError(context, 'Lỗi phân quyền: $e');
+        }
+      }
+    }
+    // 2. XỬ LÝ ĐUỔI KHỎI PHÒNG (KICK)
+    else if (action == 'kick') {
+      bool confirm = await _showConfirmDialog(
+        'Xác nhận đuổi ${user.name} khỏi phòng?',
+      );
       if (confirm) {
         try {
           await _db.collection('rooms').doc(room.id).update({
@@ -291,6 +360,7 @@ class _AdminRoomScreenState extends State<AdminRoomScreen> {
           await _db.collection('users').doc(user.uid).update({
             'roomId': null,
             'role': 'member',
+            'updatedAt': FieldValue.serverTimestamp(),
           });
           if (mounted)
             SnackBarService.showInfo(context, 'Đã mời ${user.name} rời phòng');
@@ -298,13 +368,16 @@ class _AdminRoomScreenState extends State<AdminRoomScreen> {
           if (mounted) SnackBarService.showError(context, 'Lỗi: $e');
         }
       }
-    } else if (action == 'delete') {
+    }
+    // 3. XỬ LÝ XÓA TÀI KHOẢN (DELETE)
+    else if (action == 'delete') {
       bool confirm = await _showConfirmDialog(
-        'Xóa VĨNH VIỄN tài khoản ${user.name}?',
+        'Xác nhận xóa VĨNH VIỄN tài khoản ${user.name}?',
       );
       if (confirm) {
         try {
           await _db.collection('users').doc(user.uid).delete();
+          // Nếu user đang ở trong phòng, dọn dẹp thêm mảng members của phòng đó
           if (room.id.isNotEmpty) {
             await _db.collection('rooms').doc(room.id).update({
               'members': FieldValue.arrayRemove([
@@ -313,7 +386,7 @@ class _AdminRoomScreenState extends State<AdminRoomScreen> {
             });
           }
           if (mounted)
-            SnackBarService.showSuccess(context, 'Đã xóa tài khoản người dùng');
+            SnackBarService.showSuccess(context, 'Đã xóa tài khoản thành công');
         } catch (e) {
           if (mounted)
             SnackBarService.showError(context, 'Lỗi xóa tài khoản: $e');

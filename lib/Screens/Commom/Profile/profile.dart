@@ -325,6 +325,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     onPressed: () async {
                       await FirebaseAuth.instance.signOut();
                       // MyAuthProvider sẽ tự động cập nhật currentUser = null
+
+                      if (context.mounted) {
+                        Navigator.of(context).pushAndRemoveUntil(
+                          MaterialPageRoute(builder: (_) => LoginScreen()),
+                          (route) => false,
+                        );
+                      }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.grey[300],
