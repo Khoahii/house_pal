@@ -6,6 +6,8 @@ import 'package:house_pal/providers/auth_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:house_pal/Screens/Commom/Profile/role_management_screen.dart';
 import 'package:house_pal/Screens/Commom/Profile/house_members_screen.dart';
+import 'package:house_pal/services/room_service.dart';
+import 'package:house_pal/Screens/Commom/Auth/login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -14,6 +16,9 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 class _ProfileScreenState extends State<ProfileScreen> {
+  final RoomService _roomService = RoomService();
+  bool _isLeavingRoom = false;
+
   void _openMembers(BuildContext context, AppUser? user) {
     if (user?.roomId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -26,7 +31,133 @@ class _ProfileScreenState extends State<ProfileScreen> {
       MaterialPageRoute(builder: (_) => HouseMembersScreen(roomRef: user!.roomId!)),
     );
   }
-  @override
+
+  // ✅ Dialog xác nhận rời phòng
+  void _showLeaveRoomConfirmDialog(BuildContext context, AppUser? user) {
+    if (user?.roomId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bạn chưa tham gia phòng.')),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Xác nhận rời khỏi phòng?',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        actions: [
+          TextButton(
+            onPressed: _isLeavingRoom ? null : () => Navigator.pop(dialogContext),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: _isLeavingRoom
+                ? null
+                : () async {
+                    Navigator.pop(dialogContext);
+                    await _handleLeaveRoom(context);
+                  },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              disabledBackgroundColor: Colors.red.withOpacity(0.6),
+            ),
+            child: _isLeavingRoom
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation(Colors.white),
+                    ),
+                  )
+                : const Text('Xác nhận rời',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    )),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ✅ Xử lý rời phòng
+  Future<void> _handleLeaveRoom(BuildContext context) async {
+    setState(() => _isLeavingRoom = true);
+
+    try {
+      await _roomService.leaveRoom();
+
+      // Đăng xuất Firebase
+      await FirebaseAuth.instance.signOut();
+
+      // Navigate về LoginScreen và xóa toàn bộ navigation stack
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
+        );
+
+        // Thông báo đã đăng xuất
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Đã rời khỏi phòng và đăng xuất',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error, color: Colors.white),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    e.toString().replaceFirst('Exception: ', ''),
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLeavingRoom = false);
+    }
+  }
+
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F7FB),
@@ -170,7 +301,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 16),
 
                   // ===== RỜI KHỎI NHÀ =====
-                  _dangerCard(icon: Icons.exit_to_app, title: "Rời khỏi nhà"),
+                  _dangerCard(
+                    icon: Icons.exit_to_app,
+                    title: "Rời khỏi nhà",
+                    onTap: () => _showLeaveRoomConfirmDialog(context, user),
+                  ),
 
                   const SizedBox(height: 20),
 
@@ -250,25 +385,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // DANGER ITEM
-  Widget _dangerCard({required IconData icon, required String title}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: Colors.red),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(fontSize: 15, color: Colors.red),
+  Widget _dangerCard({
+    required IconData icon,
+    required String title,
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.red),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(fontSize: 15, color: Colors.red),
+              ),
             ),
-          ),
-          const Icon(Icons.chevron_right, color: Colors.red),
-        ],
+            const Icon(Icons.chevron_right, color: Colors.red),
+          ],
+        ),
       ),
     );
   }

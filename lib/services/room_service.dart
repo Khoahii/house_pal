@@ -79,7 +79,7 @@ String _generateRoomCode() {
     return Room.fromFirestore(roomDoc);
   }
 
-  // 3. Rời phòng
+  // 3. Rời phòng - ✅ SỬ DỤNG BATCH ĐỂ ĐẢM BẢO ATOMIC
   Future<void> leaveRoom() async {
     final userDoc = await _firestore
         .collection('users')
@@ -92,19 +92,152 @@ String _generateRoomCode() {
     }
 
     final userRef = _firestore.collection('users').doc(currentUserId);
+    final batch = _firestore.batch();
 
-    // Xóa user khỏi mảng members
-    await roomRef.update({
+    // ✅ BƯỚC 1: Core Logic (2 cập nhật Atomic)
+    batch.update(roomRef, {
       'members': FieldValue.arrayRemove([userRef]),
+      'updatedAt': FieldValue.serverTimestamp(),
     });
 
-    // Cập nhật lại user
-    await userRef.update({
+    batch.update(userRef, {
       'roomId': null,
-      // Nếu là room_leader → đổi về member (trừ admin)
       if (userDoc['role'] == 'room_leader') 'role': 'member',
       'updatedAt': FieldValue.serverTimestamp(),
     });
+
+    // ✅ BƯỚC 2: Xử lý Tasks - xóa khỏi rotationOrder
+    await _cleanupTasksOnLeave(batch, roomRef);
+
+    // ✅ BƯỚC 3: Xử lý Funds - soft delete từ fund.members
+    await _cleanupFundsOnLeave(batch, roomRef);
+
+    // ✅ Commit tất cả cùng một lúc (ATOMIC)
+    await batch.commit();
+  }
+
+  // ✅ Helper: Xử lý tasks khi user rời phòng (xóa khỏi rotation + reassign nếu cần)
+  Future<void> _cleanupTasksOnLeave(
+    WriteBatch batch,
+    DocumentReference roomRef,
+  ) async {
+    final tasksQs = await _firestore
+        .collection('rooms')
+        .doc(roomRef.id)
+        .collection('tasks')
+        .get();
+
+    final leavingUserRef = _firestore.collection('users').doc(currentUserId);
+
+    for (final taskDoc in tasksQs.docs) {
+      final data = taskDoc.data();
+      final String assignMode = (data['assignMode'] ?? 'auto') as String;
+
+      final List<DocumentReference> oldRotation =
+          List<DocumentReference>.from(data['rotationOrder'] ?? []);
+      final List<DocumentReference> newRotation =
+          oldRotation.where((ref) => ref.id != currentUserId).toList();
+
+      final DocumentReference? manualAssignedTo =
+          data['manualAssignedTo'] is DocumentReference
+              ? data['manualAssignedTo'] as DocumentReference
+              : null;
+
+      final int? rotationIndex =
+          data['rotationIndex'] is int ? data['rotationIndex'] as int : null;
+
+      // Base update map
+      final Map<String, dynamic> update = {
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      // Luôn xóa user khỏi rotationOrder nếu có
+      if (newRotation.length != oldRotation.length) {
+        update['rotationOrder'] = newRotation;
+      }
+
+      if (assignMode == 'auto') {
+        // Kiểm tra xem người rời có phải người đang được giao không
+        final bool isLeavingCurrentlyAssigned =
+            manualAssignedTo?.id == leavingUserRef.id;
+
+        if (newRotation.isEmpty) {
+          // Không còn ai → đánh dấu task chưa phân công
+          update['rotationIndex'] = null;
+          update['manualAssignedTo'] = null;
+        } else if (isLeavingCurrentlyAssigned) {
+          // Người rời đang được giao → giao lại cho người tiếp theo
+          int newIndex = (rotationIndex ?? 0) % newRotation.length;
+          final DocumentReference newAssignee = newRotation[newIndex];
+
+          update['rotationIndex'] = newIndex;
+          update['manualAssignedTo'] = newAssignee;
+        } else {
+          // Người rời không phải người được giao → chỉ cần cap index
+          if (rotationIndex != null && newRotation.isNotEmpty) {
+            final int cappedIndex = rotationIndex % newRotation.length;
+            if (cappedIndex != rotationIndex) {
+              update['rotationIndex'] = cappedIndex;
+            }
+          }
+          // Nếu rotation rỗng, clear
+          if (newRotation.isEmpty) {
+            update['rotationIndex'] = null;
+            update['manualAssignedTo'] = null;
+          }
+        }
+      } else {
+        // assignMode == 'manual'
+        // Nếu người được giao thủ công là người rời → unassign
+        if (manualAssignedTo?.id == leavingUserRef.id) {
+          update['manualAssignedTo'] = null;
+        }
+      }
+
+      // Chỉ update nếu có thay đổi (ngoài updatedAt)
+      if (update.length > 1) {
+        batch.update(taskDoc.reference, update);
+      }
+    }
+  }
+
+  // ✅ Helper: Xóa user khỏi members của tất cả funds
+  Future<void> _cleanupFundsOnLeave(
+    WriteBatch batch,
+    DocumentReference roomRef,
+  ) async {
+    final fundsQs = await _firestore
+        .collection('funds')
+        .where('roomId', isEqualTo: roomRef)
+        .get();
+
+    final userRef = _firestore.collection('users').doc(currentUserId);
+
+    for (final fundDoc in fundsQs.docs) {
+      final members =
+          List<DocumentReference>.from(fundDoc['members'] ?? []);
+
+      // Xóa user khỏi fund members list
+      final newMembers = members
+          .where((ref) => ref.id != currentUserId)
+          .toList();
+
+      if (newMembers.length != members.length) {
+        batch.update(fundDoc.reference, {
+          'members': newMembers,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+
+        // ✅ Số dư lại: Đánh dấu fund_members status = 'left'
+        final fundMemberRef = _firestore.collection('fund_members')
+            .doc('${fundDoc.id}_$currentUserId');
+
+        batch.update(fundMemberRef, {
+          'status': 'left',
+          'leftAt': FieldValue.serverTimestamp(),
+        });
+      }
+    }
   }
 
   // 4. Lấy phòng hiện tại của user
