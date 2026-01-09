@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:house_pal/models/app_user.dart';
+import 'package:house_pal/models/user/app_user.dart';
 
 class AvatarStack extends StatelessWidget {
   final List<AppUser> members;

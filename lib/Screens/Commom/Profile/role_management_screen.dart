@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:house_pal/models/app_user.dart';
+import 'package:house_pal/models/user/app_user.dart';
 import 'package:house_pal/providers/auth_provider.dart';
 import 'package:provider/provider.dart';
 

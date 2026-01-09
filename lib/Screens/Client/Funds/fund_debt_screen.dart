@@ -2,9 +2,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:house_pal/Screens/Client/Funds/components/loading_overlay.dart';
-import 'package:house_pal/models/fund.dart';
-import 'package:house_pal/services/fund_service.dart';
-import 'package:house_pal/services/snack_bar_service.dart';
+import 'package:house_pal/models/fund/fund.dart';
+import 'package:house_pal/services/fund/fund_service.dart';
+import 'package:house_pal/services/notify/snack_bar_service.dart';
 import 'package:intl/intl.dart';
 
 class FundDebtScreen extends StatelessWidget {

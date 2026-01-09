@@ -3,10 +3,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:house_pal/Screens/Client/Funds/components/block_avatar.dart';
 import 'package:house_pal/Screens/Client/Funds/fund_detail.dart';
-import 'package:house_pal/models/app_user.dart';
-import 'package:house_pal/models/fund.dart';
-import 'package:house_pal/services/fund_service.dart';
-import 'package:house_pal/services/snack_bar_service.dart';
+import 'package:house_pal/models/user/app_user.dart';
+import 'package:house_pal/models/fund/fund.dart';
+import 'package:house_pal/services/fund/fund_service.dart';
+import 'package:house_pal/services/notify/snack_bar_service.dart';
 import 'package:intl/intl.dart';
 import 'create_or_edit_fund_bottom_sheet.dart';
 

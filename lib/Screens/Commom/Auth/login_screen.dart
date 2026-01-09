@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:house_pal/Screens/Commom/Auth/auth_wrapper.dart';
 import 'package:house_pal/Screens/Commom/Auth/register_screen.dart';
-import 'package:house_pal/services/auth_service.dart';
+import 'package:house_pal/services/auth/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});

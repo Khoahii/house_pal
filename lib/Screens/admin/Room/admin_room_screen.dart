@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:house_pal/services/snack_bar_service.dart';
-import '../../../models/room.dart';
-import '../../../models/app_user.dart';
-import '../../../services/room_service.dart';
-import '../../../services/user_service.dart';
+import 'package:house_pal/services/notify/snack_bar_service.dart';
+import '../../../models/room/room.dart';
+import '../../../models/user/app_user.dart';
+import '../../../services/room/room_service.dart';
+import '../../../services/user/user_service.dart';
 
 class AdminRoomScreen extends StatefulWidget {
   const AdminRoomScreen({super.key});

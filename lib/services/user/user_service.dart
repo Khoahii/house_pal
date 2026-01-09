@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/app_user.dart';
+import '../../models/user/app_user.dart';
 import 'upload_service.dart';
 
 class UserService {

@@ -1,10 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:house_pal/models/app_user.dart';
-import 'package:house_pal/models/fund.dart';
-import 'package:house_pal/services/fund_service.dart';
-import 'package:house_pal/services/snack_bar_service.dart';
+import 'package:house_pal/models/user/app_user.dart';
+import 'package:house_pal/models/fund/fund.dart';
+import 'package:house_pal/services/fund/fund_service.dart';
+import 'package:house_pal/services/notify/snack_bar_service.dart';
 import 'package:house_pal/ultils/fund/fund_category.dart';
 
 class CreateOrEditFundBottomSheet extends StatefulWidget {

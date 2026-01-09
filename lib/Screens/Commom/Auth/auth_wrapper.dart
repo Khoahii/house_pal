@@ -6,8 +6,8 @@ import 'package:house_pal/Screens/Commom/Onboading/OnboadingParent.dart';
 import 'package:house_pal/Screens/Commom/Rooms/join_room_screen.dart';
 import 'package:house_pal/Screens/Commom/Splash/splash_screen.dart';
 import 'package:house_pal/Screens/admin/AdminMainPage/admin_main_page_screen.dart';
-import 'package:house_pal/models/app_user.dart';
-import 'package:house_pal/services/auth_service.dart';
+import 'package:house_pal/models/user/app_user.dart';
+import 'package:house_pal/services/auth/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthWrapper extends StatelessWidget {

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:house_pal/Screens/Commom/Profile/screen_update_info.dart';
-import 'package:house_pal/models/app_user.dart';
+import 'package:house_pal/models/user/app_user.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:house_pal/providers/auth_provider.dart';
 import 'package:provider/provider.dart';

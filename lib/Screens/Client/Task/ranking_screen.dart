@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../../models/leaderboard_score.dart';
-import '../../../services/leaderboard_service.dart';
-import '../../../services/auth_service.dart';
+import '../../../models/task/leaderboard_score.dart';
+import '../../../services/task/leaderboard_service.dart';
+import '../../../services/auth/auth_service.dart';
 
 class RankingScreen extends StatefulWidget {
   final String roomId; // Room ID để query leaderboard
