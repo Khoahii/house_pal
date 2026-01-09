@@ -3,10 +3,10 @@ import 'package:house_pal/Screens/Commom/Profile/screen_update_info.dart';
 import 'package:house_pal/models/user/app_user.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:house_pal/providers/auth_provider.dart';
+import 'package:house_pal/services/room/room_service.dart';
 import 'package:provider/provider.dart';
 import 'package:house_pal/Screens/Commom/Profile/role_management_screen.dart';
 import 'package:house_pal/Screens/Commom/Profile/house_members_screen.dart';
-import 'package:house_pal/services/room_service.dart';
 import 'package:house_pal/Screens/Commom/Auth/login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -15,29 +15,32 @@ class ProfileScreen extends StatefulWidget {
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
+
 class _ProfileScreenState extends State<ProfileScreen> {
   final RoomService _roomService = RoomService();
   bool _isLeavingRoom = false;
 
   void _openMembers(BuildContext context, AppUser? user) {
     if (user?.roomId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bạn chưa tham gia phòng.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Bạn chưa tham gia phòng.')));
       return;
     }
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => HouseMembersScreen(roomRef: user!.roomId!)),
+      MaterialPageRoute(
+        builder: (_) => HouseMembersScreen(roomRef: user!.roomId!),
+      ),
     );
   }
 
   // ✅ Dialog xác nhận rời phòng
   void _showLeaveRoomConfirmDialog(BuildContext context, AppUser? user) {
     if (user?.roomId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bạn chưa tham gia phòng.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Bạn chưa tham gia phòng.')));
       return;
     }
 
@@ -52,7 +55,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: _isLeavingRoom ? null : () => Navigator.pop(dialogContext),
+            onPressed: _isLeavingRoom
+                ? null
+                : () => Navigator.pop(dialogContext),
             child: const Text('Hủy'),
           ),
           ElevatedButton(
@@ -75,12 +80,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       valueColor: AlwaysStoppedAnimation(Colors.white),
                     ),
                   )
-                : const Text('Xác nhận rời',
+                : const Text(
+                    'Xác nhận rời',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: Colors.white,
-                    )),
+                    ),
+                  ),
           ),
         ],
       ),
@@ -126,7 +133,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 3),
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         );
       }
@@ -149,7 +158,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 4),
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         );
       }
