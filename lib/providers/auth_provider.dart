@@ -35,4 +35,14 @@ class MyAuthProvider with ChangeNotifier {
       notifyListeners();
     }
   }
+
+  Future<void> signOut() async {
+    try {
+      await FirebaseAuth.instance.signOut();
+      // Sau khi signOut, authStateChanges sẽ tự bắt được firebaseUser == null
+      // và gán _currentUser = null nhờ listener ở constructor.
+    } catch (e) {
+      debugPrint("Lỗi SignOut: $e");
+    }
+  }  
 }
