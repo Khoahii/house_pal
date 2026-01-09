@@ -9,12 +9,11 @@ class RoomService {
   // 1. Tạo phòng mới
   Future<Room> createRoom(String roomName) async {
     final roomRef = _firestore.collection('rooms').doc();
-
-    final String code = _generateRoomCode();
+    final userRef = _firestore.collection('users').doc(currentUserId);
 
     await roomRef.set({
       'name': roomName,
-      'code': code,
+      'code': _generateRoomCode(),
       'members': [],
       'createdAt': FieldValue.serverTimestamp(),
     });
@@ -27,11 +26,10 @@ class RoomService {
   String _generateRoomCode() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     final random = DateTime.now().millisecondsSinceEpoch;
-    final code = List.generate(
+    return List.generate(
       8,
       (i) => chars[(random + i * 31) % chars.length],
     ).join();
-    return code;
   }
 
   // 2. Join phòng bằng mã code
@@ -48,28 +46,26 @@ class RoomService {
       throw "Mã phòng không tồn tại!";
     }
 
-    final roomDoc = query.docs.first; //- lấy ra phòng để check
-    final roomRef = roomDoc.reference;
-    final members = List<DocumentReference>.from(roomDoc['members']);
-
-    // Kiểm tra đã ở trong phòng chưa
+    final roomRef = query.docs.first.reference;
+    final members = List<DocumentReference>.from(query.docs.first['members']);
     final userRef = _firestore.collection('users').doc(currentUserId);
+
     if (members.contains(userRef)) {
       throw "Bạn đã ở trong phòng này rồi!";
     }
 
-    // Thêm thành viên vào phòng
     await roomRef.update({
       'members': FieldValue.arrayUnion([userRef]),
+      'updatedAt': FieldValue.serverTimestamp(),
     });
 
-    // Cập nhật user: gán roomId + role member (nếu chưa phải leader/admin)
-    await _firestore.collection('users').doc(currentUserId).update({
+    await userRef.update({
       'roomId': roomRef,
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
-    return Room.fromFirestore(roomDoc);
+    final doc = await roomRef.get();
+    return Room.fromFirestore(doc);
   }
 
   // 3. Rời phòng - ✅ SỬ DỤNG BATCH ĐỂ ĐẢM BẢO ATOMIC
@@ -109,7 +105,7 @@ class RoomService {
     await batch.commit();
   }
 
-  // ✅ Helper: Xử lý tasks khi user rời phòng (xóa khỏi rotation + reassign nếu cần)
+  // ✅ Helper: Xử lý tasks khi user rời phòng
   Future<void> _cleanupTasksOnLeave(
     WriteBatch batch,
     DocumentReference roomRef,
@@ -124,25 +120,17 @@ class RoomService {
 
     for (final taskDoc in tasksQs.docs) {
       final data = taskDoc.data();
-      final String assignMode = (data['assignMode'] ?? 'auto') as String;
+      final assignMode = data['assignMode'] as String? ?? 'auto';
+      final oldRotation = List<DocumentReference>.from(data['rotationOrder'] ?? []);
+      final newRotation = oldRotation.where((ref) => ref.id != currentUserId).toList();
+      final manualAssignedTo = data['manualAssignedTo'] is DocumentReference
+          ? data['manualAssignedTo'] as DocumentReference
+          : null;
+      final rotationIndex = data['rotationIndex'] is int
+          ? data['rotationIndex'] as int
+          : null;
 
-      final List<DocumentReference> oldRotation =
-          List<DocumentReference>.from(data['rotationOrder'] ?? []);
-      final List<DocumentReference> newRotation =
-          oldRotation.where((ref) => ref.id != currentUserId).toList();
-
-      final DocumentReference? manualAssignedTo =
-          data['manualAssignedTo'] is DocumentReference
-              ? data['manualAssignedTo'] as DocumentReference
-              : null;
-
-      final int? rotationIndex =
-          data['rotationIndex'] is int ? data['rotationIndex'] as int : null;
-
-      // Base update map
-      final Map<String, dynamic> update = {
-        'updatedAt': FieldValue.serverTimestamp(),
-      };
+      final update = <String, dynamic>{'updatedAt': FieldValue.serverTimestamp()};
 
       // Luôn xóa user khỏi rotationOrder nếu có
       if (newRotation.length != oldRotation.length) {
@@ -150,46 +138,49 @@ class RoomService {
       }
 
       if (assignMode == 'auto') {
-        // Kiểm tra xem người rời có phải người đang được giao không
-        final bool isLeavingCurrentlyAssigned =
-            manualAssignedTo?.id == leavingUserRef.id;
-
-        if (newRotation.isEmpty) {
-          // Không còn ai → đánh dấu task chưa phân công
-          update['rotationIndex'] = null;
-          update['manualAssignedTo'] = null;
-        } else if (isLeavingCurrentlyAssigned) {
-          // Người rời đang được giao → giao lại cho người tiếp theo
-          int newIndex = (rotationIndex ?? 0) % newRotation.length;
-          final DocumentReference newAssignee = newRotation[newIndex];
-
-          update['rotationIndex'] = newIndex;
-          update['manualAssignedTo'] = newAssignee;
-        } else {
-          // Người rời không phải người được giao → chỉ cần cap index
-          if (rotationIndex != null && newRotation.isNotEmpty) {
-            final int cappedIndex = rotationIndex % newRotation.length;
-            if (cappedIndex != rotationIndex) {
-              update['rotationIndex'] = cappedIndex;
-            }
-          }
-          // Nếu rotation rỗng, clear
-          if (newRotation.isEmpty) {
-            update['rotationIndex'] = null;
-            update['manualAssignedTo'] = null;
-          }
-        }
-      } else {
-        // assignMode == 'manual'
-        // Nếu người được giao thủ công là người rời → unassign
-        if (manualAssignedTo?.id == leavingUserRef.id) {
-          update['manualAssignedTo'] = null;
-        }
+        _handleAutoTaskUpdate(update, newRotation, manualAssignedTo, rotationIndex, leavingUserRef);
+      } else if (manualAssignedTo?.id == leavingUserRef.id) {
+        // assignMode == 'manual' && người rời đang được giao → XÓA TASK
+        batch.delete(taskDoc.reference);
+        continue;
       }
 
       // Chỉ update nếu có thay đổi (ngoài updatedAt)
       if (update.length > 1) {
         batch.update(taskDoc.reference, update);
+      }
+    }
+  }
+
+  // ✅ Helper: Xử lý auto task update logic
+  void _handleAutoTaskUpdate(
+    Map<String, dynamic> update,
+    List<DocumentReference> newRotation,
+    DocumentReference? manualAssignedTo,
+    int? rotationIndex,
+    DocumentReference leavingUserRef,
+  ) {
+    final isLeavingAssigned = manualAssignedTo?.id == leavingUserRef.id;
+
+    if (newRotation.isEmpty) {
+      update['rotationIndex'] = null;
+      update['manualAssignedTo'] = null;
+    } else if (isLeavingAssigned) {
+      // Giao lại cho người tiếp theo
+      final newIndex = (rotationIndex ?? 0) % newRotation.length;
+      update['rotationIndex'] = newIndex;
+      update['manualAssignedTo'] = newRotation[newIndex];
+    } else {
+      // Cap index nếu cần
+      if (rotationIndex != null && newRotation.isNotEmpty) {
+        final cappedIndex = rotationIndex % newRotation.length;
+        if (cappedIndex != rotationIndex) {
+          update['rotationIndex'] = cappedIndex;
+        }
+      }
+      if (newRotation.isEmpty) {
+        update['rotationIndex'] = null;
+        update['manualAssignedTo'] = null;
       }
     }
   }
@@ -204,16 +195,10 @@ class RoomService {
         .where('roomId', isEqualTo: roomRef)
         .get();
 
-    final userRef = _firestore.collection('users').doc(currentUserId);
-
     for (final fundDoc in fundsQs.docs) {
-      final members =
-          List<DocumentReference>.from(fundDoc['members'] ?? []);
-
-      // Xóa user khỏi fund members list
-      final newMembers = members
-          .where((ref) => ref.id != currentUserId)
-          .toList();
+      final members = List<DocumentReference>.from(fundDoc['members'] ?? []);
+      final newMembers =
+          members.where((ref) => ref.id != currentUserId).toList();
 
       if (newMembers.length != members.length) {
         batch.update(fundDoc.reference, {
@@ -221,7 +206,6 @@ class RoomService {
           'updatedAt': FieldValue.serverTimestamp(),
         });
 
-        // ✅ Số dư lại: Đánh dấu fund_members status = 'left'
         final fundMemberRef = _firestore.collection('fund_members')
             .doc('${fundDoc.id}_$currentUserId');
 
@@ -247,10 +231,9 @@ class RoomService {
         });
   }
 
-  // 5. Lấy danh sách tất cả phòng (nếu cần quản lý admin)
+  // 5. Lấy danh sách tất cả phòng
   Stream<List<Room>> get allRoomsStream {
-    return _firestore.collection('rooms').snapshots().map((snapshot) {
-      return snapshot.docs.map(Room.fromFirestore).toList();
-    });
+    return _firestore.collection('rooms').snapshots().map(
+        (snapshot) => snapshot.docs.map(Room.fromFirestore).toList());
   }
 }

@@ -78,6 +78,7 @@ class _HouseMembersScreenState extends State<HouseMembersScreen> {
           }
 
           final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
+          final name = data['name'] ?? '';
           final code = data['code'] ?? '';
           final members = List<DocumentReference>.from(data['members'] ?? []);
 
@@ -86,7 +87,7 @@ class _HouseMembersScreenState extends State<HouseMembersScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _RoomCard(code: code, memberCount: members.length),
+                _RoomCard(name: name, code: code, memberCount: members.length),
                 const SizedBox(height: 16),
                 const Text(
                   'Danh sách thành viên',
@@ -136,9 +137,10 @@ class _HouseMembersScreenState extends State<HouseMembersScreen> {
 }
 
 class _RoomCard extends StatelessWidget {
+  final String name;
   final String code;
   final int memberCount;
-  const _RoomCard({required this.code, required this.memberCount});
+  const _RoomCard({required this.name, required this.code, required this.memberCount});
 
   @override
   Widget build(BuildContext context) {
@@ -154,6 +156,17 @@ class _RoomCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const Text('Tên phòng', style: TextStyle(fontSize: 14, color: Color(0xFF6B7280))),
+          const SizedBox(height: 6),
+          Text(
+            name.isNotEmpty ? name : 'Chưa đặt tên',
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1F2937),
+            ),
+          ),
+          const SizedBox(height: 14),
           const Text('Mã phòng', style: TextStyle(fontSize: 14, color: Color(0xFF6B7280))),
           const SizedBox(height: 6),
           Row(
