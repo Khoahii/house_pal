@@ -10,6 +10,27 @@ import 'package:house_pal/services/leaderboard_service.dart';
 import 'package:house_pal/models/leaderboard_score.dart';
 import 'package:house_pal/services/snack_bar_service.dart';
 
+// ============ App Colors Constants ============
+class AppColors {
+  static const Color primaryColor = Color(0xFF4F46E5);
+  static const Color primaryLight = Color(0xFF6366F1);
+  static const Color bgColor = Color(0xFFF9FAFB);
+  static const Color cardBg = Color(0xFFEEF2FF);
+  static const Color textPrimary = Color(0xFF1F2937);
+  static const Color textSecondary = Color(0xFF6B7280);
+  static const Color textLight = Color(0xFF374151);
+  static const Color borderColor = Color(0xFFF3F4F6);
+  static const Color accentColor = Color(0xFFF59E0B);
+
+  // Difficulty colors
+  static const Color hardColor = Color(0xFFB91C1C);
+  static const Color hardBg = Color(0xFFFEE2E2);
+  static const Color mediumColor = Color(0xFFA16207);
+  static const Color mediumBg = Color(0xFFFEF9C3);
+  static const Color easyColor = Color(0xFF15803D);
+  static const Color easyBg = Color(0xFFDCFCE7);
+}
+
 void main() {
   runApp(const MainTaskScreen());
 }
@@ -22,7 +43,7 @@ class MainTaskScreen extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData.light().copyWith(
-        scaffoldBackgroundColor: const Color(0xFFF9FAFB),
+        scaffoldBackgroundColor: AppColors.bgColor,
         textTheme: Theme.of(context).textTheme.apply(fontFamily: 'Roboto'),
       ),
       home: const MainTask(),
@@ -43,12 +64,36 @@ class _MainTaskState extends State<MainTask> {
   String _filterType = 'my_tasks';
   
   final Map<String, Map<String, dynamic>> _userCache = {};
-  late String _currentUserId;
+  late DocumentReference _currentUserRef;
 
   @override
   void initState() {
     super.initState();
     _loadCurrentUser();
+  }
+
+  // ✅ Helper: Get difficulty info once
+  Map<String, dynamic> _getDifficultyInfo(String difficulty) {
+    switch (difficulty) {
+      case 'hard':
+        return {
+          'color': AppColors.hardColor,
+          'bg': AppColors.hardBg,
+          'label': 'Khó',
+        };
+      case 'medium':
+        return {
+          'color': AppColors.mediumColor,
+          'bg': AppColors.mediumBg,
+          'label': 'Trung bình',
+        };
+      default:
+        return {
+          'color': AppColors.easyColor,
+          'bg': AppColors.easyBg,
+          'label': 'Dễ',
+        };
+    }
   }
 
   Future<void> _loadCurrentUser() async {
@@ -67,11 +112,10 @@ class _MainTaskState extends State<MainTask> {
       return;
     }
 
-    _currentUserId = firebaseUser.uid;
+    _currentUserRef = FirebaseFirestore.instance.collection('users').doc(firebaseUser.uid);
     _userCache.clear();
 
-    final userRef = FirebaseFirestore.instance.collection('users').doc(firebaseUser.uid);
-    final doc = await userRef.get();
+    final doc = await _currentUserRef.get();
 
     AppUser? newUser;
     if (doc.exists) {
@@ -81,7 +125,7 @@ class _MainTaskState extends State<MainTask> {
     Room? newRoom;
     final roomQuery = await FirebaseFirestore.instance
         .collection('rooms')
-        .where('members', arrayContains: userRef)
+        .where('members', arrayContains: _currentUserRef)
         .limit(1)
         .get();
 
@@ -184,7 +228,7 @@ class _MainTaskState extends State<MainTask> {
         children: [
           Icon(
             icon,
-            color: isSelected ? const Color(0xFF4F46E5) : const Color(0xFF6B7280),
+            color: isSelected ? AppColors.primaryColor : AppColors.textSecondary,
             size: 20,
           ),
           const SizedBox(width: 12),
@@ -194,19 +238,31 @@ class _MainTaskState extends State<MainTask> {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected ? const Color(0xFF4F46E5) : const Color(0xFF374151),
+                color: isSelected ? AppColors.primaryColor : const Color(0xFF374151),
               ),
             ),
           ),
           if (isSelected)
             const Icon(
               Icons.check,
-              color: Color(0xFF4F46E5),
+              color: AppColors.primaryColor,
               size: 20,
             ),
         ],
       ),
     );
+  }
+
+  // ✅ Centralize ranking navigation
+  void _navigateToRanking() {
+    if (currentRoom != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => RankingScreen(roomId: currentRoom!.id),
+        ),
+      );
+    }
   }
 
   @override
@@ -219,7 +275,7 @@ class _MainTaskState extends State<MainTask> {
         ),
         centerTitle: false,
         elevation: 0,
-        backgroundColor: const Color(0xFF4F46E5),
+        backgroundColor: AppColors.primaryColor,
         foregroundColor: Colors.white,
       ),
       floatingActionButton: isLoadingUser
@@ -240,7 +296,7 @@ class _MainTaskState extends State<MainTask> {
                         ),
                       );
                     },
-                    backgroundColor: const Color(0xFF4F46E5),
+                    backgroundColor: AppColors.primaryColor,
                     elevation: 4,
                     child: const Icon(Icons.add, color: Colors.white, size: 28),
                   ),
@@ -254,23 +310,12 @@ class _MainTaskState extends State<MainTask> {
           children: [
             // Bảng xếp hạng
             GestureDetector(
-              onTap: currentRoom != null
-                  ? () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => RankingScreen(
-                            roomId: currentRoom!.id,
-                          ),
-                        ),
-                      );
-                    }
-                  : null,
+              onTap: _navigateToRanking,
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF4F46E5), Color(0xFF6366F1)],
+                    colors: [AppColors.primaryColor, AppColors.primaryLight],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -297,18 +342,7 @@ class _MainTaskState extends State<MainTask> {
                           ),
                         ),
                         InkWell(
-                          onTap: () {
-                            if (currentRoom != null) {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => RankingScreen(
-                                    roomId: currentRoom!.id,
-                                  ),
-                                ),
-                              );
-                            }
-                          },
+                          onTap: _navigateToRanking,
                           child: const Text(
                             'Xem tất cả',
                             style: TextStyle(
@@ -403,83 +437,83 @@ class _MainTaskState extends State<MainTask> {
               ),
             ),
             const SizedBox(height: 32),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Danh Sách Việc',
-                  style: TextStyle(
-                    color: Color(0xFF1F2937),
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                PopupMenuButton<String>(
-                  offset: const Offset(0, 45),
-                  elevation: 8,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  onSelected: (value) {
-                    setState(() => _filterType = value);
-                  },
-                  itemBuilder: (context) => [
-                    PopupMenuItem(
-                      value: 'my_tasks',
-                      child: _buildPopupMenuItem(
-                        icon: Icons.person_outline,
-                        title: 'Việc của tôi',
-                        isSelected: _filterType == 'my_tasks',
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Danh Sách Việc',
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    PopupMenuItem(
-                      value: 'all_tasks',
-                      child: _buildPopupMenuItem(
-                        icon: Icons.list_alt,
-                        title: 'Tất cả việc',
-                        isSelected: _filterType == 'all_tasks',
+                    PopupMenuButton<String>(
+                      offset: const Offset(0, 45),
+                      elevation: 8,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      onSelected: (value) {
+                        setState(() => _filterType = value);
+                      },
+                      itemBuilder: (context) => [
+                        PopupMenuItem(
+                          value: 'my_tasks',
+                          child: _buildPopupMenuItem(
+                            icon: Icons.person_outline,
+                            title: 'Việc của tôi',
+                            isSelected: _filterType == 'my_tasks',
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'all_tasks',
+                          child: _buildPopupMenuItem(
+                            icon: Icons.list_alt,
+                            title: 'Tất cả việc',
+                            isSelected: _filterType == 'all_tasks',
+                          ),
+                        ),
+                      ],
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: AppColors.cardBg,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: AppColors.primaryColor.withOpacity(0.2),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _filterType == 'my_tasks' ? Icons.person_outline : Icons.list_alt,
+                              color: AppColors.primaryColor,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              _filterType == 'my_tasks' ? 'Của tôi' : 'Tất cả',
+                              style: const TextStyle(
+                                color: AppColors.primaryColor,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(
+                              Icons.keyboard_arrow_down,
+                              color: AppColors.primaryColor,
+                              size: 18,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEEF2FF),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: const Color(0xFF4F46E5).withOpacity(0.2),
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          _filterType == 'my_tasks' ? Icons.person_outline : Icons.list_alt,
-                          color: const Color(0xFF4F46E5),
-                          size: 20,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          _filterType == 'my_tasks' ? 'Của tôi' : 'Tất cả',
-                          style: const TextStyle(
-                            color: Color(0xFF4F46E5),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        const Icon(
-                          Icons.keyboard_arrow_down,
-                          color: Color(0xFF4F46E5),
-                          size: 18,
-                        ),
-                      ],
-                    ),
-                  ),
                 ),
-              ],
-            ),
             const SizedBox(height: 16),
             if (currentRoom != null)
               StreamBuilder<QuerySnapshot>(
@@ -505,14 +539,10 @@ class _MainTaskState extends State<MainTask> {
                   var tasks = snapshot.data!.docs;
 
                   if (_filterType == 'my_tasks' && currentUser != null) {
-                    final currentUserRef = FirebaseFirestore.instance
-                        .collection('users')
-                        .doc(_currentUserId);
-
                     tasks = tasks.where((taskDoc) {
                       final data = taskDoc.data() as Map<String, dynamic>;
                       final assigneeRef = _getAssigneeReference(data);
-                      return assigneeRef?.path == currentUserRef.path;
+                      return assigneeRef?.path == _currentUserRef.path;
                     }).toList();
                   }
 
@@ -543,46 +573,14 @@ class _MainTaskState extends State<MainTask> {
                       final taskDoc = tasks[index];
                       final data = taskDoc.data() as Map<String, dynamic>;
 
-                      final difficulty = data['difficulty'] ?? 'easy';
-                      Color diffColor;
-                      Color diffBg;
-                      String diffLabel;
-
-                      if (difficulty == 'hard') {
-                        diffColor = const Color(0xFFB91C1C);
-                        diffBg = const Color(0xFFFEE2E2);
-                        diffLabel = 'Khó';
-                      } else if (difficulty == 'medium') {
-                        diffColor = const Color(0xFFA16207);
-                        diffBg = const Color(0xFFFEF9C3);
-                        diffLabel = 'Trung bình';
-                      } else {
-                        diffColor = const Color(0xFF15803D);
-                        diffBg = const Color(0xFFDCFCE7);
-                        diffLabel = 'Dễ';
-                      }
-
+                      final diffInfo = _getDifficultyInfo(data['difficulty'] ?? 'easy');
+                      final assigneeRef = _getAssigneeReference(data);
                       final assignMode = data['assignMode'] ?? 'auto';
-                      DocumentReference? assigneeRef;
-
-                      if (assignMode == 'manual') {
-                        assigneeRef = data['manualAssignedTo'] as DocumentReference?;
-                      } else if (assignMode == 'auto') {
-                        final rotationOrder = data['rotationOrder'] as List<dynamic>?;
-                        final rotationIndex = data['rotationIndex'] as int?;
-
-                        if (rotationOrder != null && rotationOrder.isNotEmpty) {
-                          final safeIndex = (rotationIndex ?? 0) % rotationOrder.length;
-                          assigneeRef = rotationOrder[safeIndex] as DocumentReference;
-                        }
-                      }
 
                       final isManual = (assignMode == 'manual');
-                      final Color modeColor = isManual
-                          ? const Color(0xFF4F46E5)
-                          : const Color(0xFFF59E0B);
-                      final IconData modeIcon = isManual ? Icons.person : Icons.bolt;
-                      final String modeLabel = isManual ? 'Chỉ định' : 'Tự gán';
+                      final modeColor = isManual ? AppColors.primaryColor : AppColors.accentColor;
+                      final modeIcon = isManual ? Icons.person : Icons.bolt;
+                      final modeLabel = isManual ? 'Chỉ định' : 'Tự gán';
 
                       return FutureBuilder<Map<String, dynamic>>(
                         future: _getAssigneeData(assigneeRef),
@@ -596,18 +594,16 @@ class _MainTaskState extends State<MainTask> {
                           }
 
                           return GestureDetector(
-                            // ✅ FIX #3: Sử dụng helper function thay vì lặp code
                             onTap: () => _navigateToTaskDetail(taskDoc.id),
                             child: TaskCardItem(
-                              difficulty: diffLabel,
-                              difficultyColor: diffColor,
-                              difficultyBg: diffBg,
+                              difficulty: diffInfo['label'] as String,
+                              difficultyColor: diffInfo['color'] as Color,
+                              difficultyBg: diffInfo['bg'] as Color,
                               points: '+${data['point'] ?? 0}',
                               title: data['title'] ?? 'Không tên',
                               description: data['description'] ?? '',
                               assignee: assigneeName,
                               assigneeAvatar: assigneeAvatar,
-                              // ✅ FIX #4: Sử dụng helper function trong callback
                               onDetailTap: () => _navigateToTaskDetail(taskDoc.id),
                               modeLabel: modeLabel,
                               modeIcon: modeIcon,
@@ -696,7 +692,7 @@ class FilterTab extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10),
       decoration: BoxDecoration(
-        color: isSelected ? const Color(0xFF4F46E5) : Colors.transparent,
+        color: isSelected ? AppColors.primaryColor : Colors.transparent,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Center(
@@ -751,7 +747,7 @@ class TaskCardItem extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFF3F4F6)),
+        border: Border.all(color: AppColors.borderColor),
         boxShadow: const [
           BoxShadow(color: Color(0x0C000000), blurRadius: 4, offset: Offset(0, 2)),
         ],
@@ -780,7 +776,7 @@ class TaskCardItem extends StatelessWidget {
               Text(
                 points,
                 style: const TextStyle(
-                  color: Color(0xFF4F46E5),
+                  color: AppColors.primaryColor,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                 ),
@@ -810,7 +806,7 @@ class TaskCardItem extends StatelessWidget {
           Text(
             title,
             style: const TextStyle(
-              color: Color(0xFF1F2937),
+              color: AppColors.textPrimary,
               fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
@@ -819,13 +815,13 @@ class TaskCardItem extends StatelessWidget {
           Text(
             description,
             style: const TextStyle(
-              color: Color(0xFF6B7280),
+              color: AppColors.textSecondary,
               fontSize: 13,
               height: 1.4,
             ),
           ),
           const SizedBox(height: 16),
-          const Divider(height: 1, color: Color(0xFFF3F4F6)),
+          const Divider(height: 1, color: AppColors.borderColor),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -841,7 +837,7 @@ class TaskCardItem extends StatelessWidget {
                   Text(
                     assignee,
                     style: const TextStyle(
-                      color: Color(0xFF374151),
+                      color: AppColors.textLight,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
@@ -852,8 +848,8 @@ class TaskCardItem extends StatelessWidget {
                 onPressed: onDetailTap,
                 style: TextButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  backgroundColor: const Color(0xFFEEF2FF),
-                  foregroundColor: const Color(0xFF4F46E5),
+                  backgroundColor: AppColors.cardBg,
+                  foregroundColor: AppColors.primaryColor,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
