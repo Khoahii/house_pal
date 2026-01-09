@@ -20,7 +20,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    super.dispose(); 
+    super.dispose();
   }
 
   Future<void> _loginWithEmail() async {
@@ -48,7 +48,6 @@ class _LoginScreenState extends State<LoginScreen> {
           (route) => false,
         );
       }
-
     } catch (e) {
       // 3. THẤT BẠI: Hiện lại nút và báo lỗi
       if (mounted) {
@@ -60,8 +59,10 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
       }
-    } finally{
-      setState(() => _isLoading = false);
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -73,7 +74,10 @@ class _LoginScreenState extends State<LoginScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Color.fromARGB(255, 0, 0, 0)),
+          icon: const Icon(
+            Icons.arrow_back_ios,
+            color: Color.fromARGB(255, 0, 0, 0),
+          ),
           onPressed: () {},
         ),
       ),
@@ -207,7 +211,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   label: const Text(
                     'Đăng nhập với Facebook',
-                    style: TextStyle(color: Color.fromARGB(255, 0, 0, 0), fontSize: 16),
+                    style: TextStyle(
+                      color: Color.fromARGB(255, 0, 0, 0),
+                      fontSize: 16,
+                    ),
                   ),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Color(0xFF9C27B0)),
@@ -223,10 +230,17 @@ class _LoginScreenState extends State<LoginScreen> {
                 // Apple button
                 OutlinedButton.icon(
                   onPressed: () {},
-                  icon: const Icon(Icons.apple, color: Color.fromARGB(255, 0, 0, 0), size: 28),
+                  icon: const Icon(
+                    Icons.apple,
+                    color: Color.fromARGB(255, 0, 0, 0),
+                    size: 28,
+                  ),
                   label: const Text(
                     'Đăng nhập với Apple',
-                    style: TextStyle(color: Color.fromARGB(255, 0, 0, 0), fontSize: 16),
+                    style: TextStyle(
+                      color: Color.fromARGB(255, 0, 0, 0),
+                      fontSize: 16,
+                    ),
                   ),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Color(0xFF9C27B0)),

@@ -19,7 +19,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
   final List<Widget> _pages = [
     AdminDashboardScreen(),
     AdminRoomScreen(),
-    AdminUserScreen(),
+    // AdminUserScreen(),
     ProfileScreen(),
   ];
 
@@ -43,63 +43,20 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
             _currentIndex = index;
           });
         },
+        selectedIconTheme: const IconThemeData(size: 26),
+        unselectedIconTheme: const IconThemeData(size: 24),
         items: [
           BottomNavigationBarItem(
-            icon: Image.asset(
-              'assets/images/bottom_icon_home.png',
-              width: 24,
-              height: 24,
-            ),
-            activeIcon: Image.asset(
-              'assets/images/bottom_icon_home.png',
-              width: 24,
-              height: 24,
-              color: const Color(0xFF8687E7),
-            ),
-            label: 'Tổng quan',
+            icon: Icon(Icons.home_rounded),
+            label: 'Trang chủ',
           ),
           BottomNavigationBarItem(
-            icon: Image.asset(
-              'assets/images/bottom_icon_task.png',
-              width: 24,
-              height: 24,
-            ),
-            activeIcon: Image.asset(
-              'assets/images/bottom_icon_task.png',
-              width: 24,
-              height: 24,
-              color: const Color(0xFF8687E7),
-            ),
+            icon: Icon(Icons.meeting_room_rounded),
             label: 'Phòng',
           ),
           BottomNavigationBarItem(
-            icon: Image.asset(
-              'assets/images/bottom_icon_task.png',
-              width: 24,
-              height: 24,
-            ),
-            activeIcon: Image.asset(
-              'assets/images/bottom_icon_task.png',
-              width: 24,
-              height: 24,
-              color: const Color(0xFF8687E7),
-            ),
+            icon: Icon(Icons.person_rounded),
             label: 'Người dùng',
-          ),
-          
-          BottomNavigationBarItem(
-            icon: Image.asset(
-              'assets/images/bottom_icon_user.png',
-              width: 24,
-              height: 24,
-            ),
-            activeIcon: Image.asset(
-              'assets/images/bottom_icon_user.png',
-              width: 24,
-              height: 24,
-              color: const Color(0xFF8687E7),
-            ),
-            label: 'Profile',
           ),
         ],
       ),
