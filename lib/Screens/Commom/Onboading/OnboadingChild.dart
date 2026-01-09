@@ -18,7 +18,7 @@ class OnboadingChildScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFF121212),
+      backgroundColor: Color.fromARGB(255, 252, 252, 252),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Column(
@@ -45,7 +45,7 @@ class OnboadingChildScreen extends StatelessWidget {
           handleSkip();
         },
         child: const Text(
-          'SKIP',
+          'Bỏ qua',
           style: TextStyle(color: Colors.white, fontSize: 16),
         ),
       ),
@@ -107,7 +107,10 @@ class OnboadingChildScreen extends StatelessWidget {
           alignment: Alignment.center,
           child: Text(
             onboardingposition.getTitle(),
-            style: TextStyle(color: Colors.white, fontSize: 26),
+            style: TextStyle(
+              color: const Color.fromARGB(255, 0, 0, 0),
+              fontSize: 26,
+            ),
           ),
         ),
 
@@ -117,7 +120,7 @@ class OnboadingChildScreen extends StatelessWidget {
           margin: EdgeInsets.symmetric(horizontal: 20),
           child: Text(
             onboardingposition.getDescription(),
-            style: TextStyle(color: Colors.white),
+            style: TextStyle(color: const Color.fromARGB(255, 0, 0, 0)),
             textAlign: TextAlign.center,
           ),
         ),
@@ -143,12 +146,12 @@ class OnboadingChildScreen extends StatelessWidget {
                   width: 20,
                   height: 20,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
+                    color: const Color.fromARGB(255, 0, 0, 0).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
                     item['icon'] as IconData,
-                    color: Colors.white,
+                    color: const Color.fromARGB(255, 0, 0, 0),
                     size: 16,
                   ),
                 ),
@@ -156,12 +159,11 @@ class OnboadingChildScreen extends StatelessWidget {
                 const SizedBox(width: 10),
 
                 SizedBox(
-                  width:
-                      200,
+                  width: 200,
                   child: Text(
                     item['text'] as String,
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: Color.fromARGB(255, 0, 0, 0),
                       fontSize: 16,
                       height: 1.4,
                     ),
@@ -188,8 +190,11 @@ class OnboadingChildScreen extends StatelessWidget {
                 handleBack();
               },
               child: const Text(
-                'BACK',
-                style: TextStyle(color: Colors.white, fontSize: 16),
+                'Trở về',
+                style: TextStyle(
+                  color: Color.fromARGB(255, 0, 0, 0),
+                  fontSize: 16,
+                ),
               ),
             ),
           ),
@@ -209,8 +214,8 @@ class OnboadingChildScreen extends StatelessWidget {
               ),
               child: Text(
                 onboardingposition == Onboardingposition.page3
-                    ? 'GET STARTED'
-                    : 'NEXT',
+                    ? 'Bắt đầu'
+                    : 'Tiếp theo',
               ),
             ),
           ),
