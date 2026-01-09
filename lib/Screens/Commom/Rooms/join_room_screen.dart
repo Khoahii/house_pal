@@ -16,47 +16,52 @@ class JoinRoomScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text("Tham gia phòng")),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('rooms').snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(child: Text("Lỗi: ${snapshot.error}"));
-          }
-          if (!snapshot.hasData) {
+      body: Consumer<MyAuthProvider>(
+        builder: (context, authProvider, child) {
+          final currentUser = authProvider.currentUser;
+
+          // If user data is not loaded yet, show a loading indicator.
+          // This is the key fix to prevent a blank screen on first login.
+          if (currentUser == null) {
             return Center(child: CircularProgressIndicator());
           }
 
-          final rooms = snapshot.data!.docs
-              .map((doc) => Room.fromFirestore(doc))
-              .toList();
-
-          if (rooms.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.meeting_room_outlined,
-                    size: 80,
-                    color: Colors.grey,
+          // Once the user is available, build the list of rooms.
+          return StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance.collection('rooms').snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return Center(child: Text("Lỗi: ${snapshot.error}"));
+              }
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                // Also handles the case where there are no rooms yet.
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.meeting_room_outlined,
+                        size: 80,
+                        color: Colors.grey,
+                      ),
+                      SizedBox(height: 16),
+                      Text("Chưa có phòng nào",
+                          style: TextStyle(fontSize: 18)),
+                    ],
                   ),
-                  SizedBox(height: 16),
-                  Text("Chưa có phòng nào", style: TextStyle(fontSize: 18)),
-                ],
-              ),
-            );
-          }
+                );
+              }
 
-          return ListView.builder(
-            padding: EdgeInsets.all(12),
-            itemCount: rooms.length,
-            itemBuilder: (context, index) {
-              final room = rooms[index];
-              return Consumer<MyAuthProvider>(
-                builder: (context, authProvider, child) {
-                  final currentUser = authProvider.currentUser;
-                  if (currentUser == null) return SizedBox();
+              final rooms = snapshot.data!.docs
+                  .map((doc) => Room.fromFirestore(doc))
+                  .toList();
 
+              return ListView.builder(
+                padding: EdgeInsets.all(12),
+                itemCount: rooms.length,
+                itemBuilder: (context, index) {
+                  final room = rooms[index];
+                  // currentUser is guaranteed to be non-null here.
                   return RoomCard(room: room, currentUser: currentUser);
                 },
               );

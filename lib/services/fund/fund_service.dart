@@ -3,7 +3,16 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/fund/fund.dart';
 class FundService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final String currentUserId = FirebaseAuth.instance.currentUser!.uid;
+  String get currentUserId {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'unauthenticated',
+        message: 'User is not authenticated. The operation cannot be completed.',
+      );
+    }
+    return user.uid;
+  }
 
   // Tạo quỹ mới + tạo luôn fund_members cho tất cả thành viên được chọn
   Future<Fund> createFund({
