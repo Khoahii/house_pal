@@ -4,6 +4,7 @@ import 'package:house_pal/Screens/Commom/MainPage/main_screen.dart';
 import 'package:house_pal/models/user/app_user.dart';
 import 'package:house_pal/models/room/room.dart';
 import 'package:house_pal/providers/auth_provider.dart';
+import 'package:house_pal/services/notify/snack_bar_service.dart';
 import 'package:house_pal/services/room/room_service.dart';
 import 'package:provider/provider.dart';
 
@@ -15,27 +16,54 @@ class JoinRoomScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Tham gia phòng")),
+      backgroundColor: const Color(0xFFF8F9FA),
+      appBar: AppBar(
+        title: const Text(
+          "Tham gia phòng",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () =>
+                Provider.of<MyAuthProvider>(context, listen: false).signOut(),
+          ),
+        ],
+      ),
       body: Consumer<MyAuthProvider>(
         builder: (context, authProvider, child) {
           final currentUser = authProvider.currentUser;
 
-          // If user data is not loaded yet, show a loading indicator.
-          // This is the key fix to prevent a blank screen on first login.
+          // SỬA LỖI: Nếu null, chúng ta thử ép refresh lại một lần hoặc hiển thị nút thử lại
           if (currentUser == null) {
-            return Center(child: CircularProgressIndicator());
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 20),
+                  const Text("Đang tải thông tin tài khoản..."),
+                  TextButton(
+                    onPressed: () => authProvider.refreshUser(),
+                    child: const Text("Thử lại"),
+                  ),
+                ],
+              ),
+            );
           }
 
-          // Once the user is available, build the list of rooms.
           return StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance.collection('rooms').snapshots(),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
                 return Center(child: Text("Lỗi: ${snapshot.error}"));
               }
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
               if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                // Also handles the case where there are no rooms yet.
-                return Center(
+                return const Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -45,8 +73,7 @@ class JoinRoomScreen extends StatelessWidget {
                         color: Colors.grey,
                       ),
                       SizedBox(height: 16),
-                      Text("Chưa có phòng nào",
-                          style: TextStyle(fontSize: 18)),
+                      Text("Chưa có phòng nào", style: TextStyle(fontSize: 18)),
                     ],
                   ),
                 );
@@ -57,12 +84,10 @@ class JoinRoomScreen extends StatelessWidget {
                   .toList();
 
               return ListView.builder(
-                padding: EdgeInsets.all(12),
+                padding: const EdgeInsets.all(12),
                 itemCount: rooms.length,
                 itemBuilder: (context, index) {
-                  final room = rooms[index];
-                  // currentUser is guaranteed to be non-null here.
-                  return RoomCard(room: room, currentUser: currentUser);
+                  return RoomCard(room: rooms[index], currentUser: currentUser);
                 },
               );
             },
@@ -85,110 +110,51 @@ class RoomCard extends StatelessWidget {
         currentUser.role == 'admin' || currentUser.role == 'room_leader';
 
     return Card(
-      margin: EdgeInsets.symmetric(vertical: 8),
+      margin: const EdgeInsets.symmetric(vertical: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 4,
+      elevation: 2,
       child: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Tên phòng + mã (chỉ admin/leader thấy mã)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
                   child: Text(
                     room.name,
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 if (isPrivileged)
                   Chip(
                     label: Text(
                       room.code,
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     backgroundColor: Colors.orange.shade100,
                   ),
               ],
             ),
-            SizedBox(height: 12),
-
-            // Avatar thành viên
-            FutureBuilder<List<AppUser>>(
-              future: _fetchMembers(room.members),
-              builder: (context, snapshot) {
-                final members = snapshot.data ?? [];
-                return Row(
-                  children: [
-                    Stack(
-                      children: members.take(6).toList().asMap().entries.map((
-                        e,
-                      ) {
-                        int idx = e.key;
-                        AppUser member = e.value;
-                        return Transform.translate(
-                          offset: Offset(idx * 28.0, 0),
-                          child: CircleAvatar(
-                            radius: 20,
-                            backgroundColor: member.avatarUrl != null
-                                ? null
-                                : Colors.primaries[member.name.hashCode.abs() %
-                                      Colors.primaries.length],
-                            backgroundImage: member.avatarUrl != null
-                                ? NetworkImage(member.avatarUrl!)
-                                : null,
-                            child: member.avatarUrl == null
-                                ? Text(
-                                    member.name.isNotEmpty
-                                        ? member.name[0].toUpperCase()
-                                        : "?",
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  )
-                                : null,
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                    if (members.length > 6)
-                      Transform.translate(
-                        offset: Offset(6 * 28.0, 0),
-                        child: CircleAvatar(
-                          radius: 20,
-                          backgroundColor: Colors.grey.shade600,
-                          child: Text(
-                            "+${members.length - 6}",
-                            style: TextStyle(color: Colors.white),
-                          ),
-                        ),
-                      ),
-                    Spacer(),
-                    Text(
-                      "${room.members.length} thành viên",
-                      style: TextStyle(color: Colors.grey[600]),
-                    ),
-                  ],
-                );
-              },
-            ),
-
-            SizedBox(height: 20),
-
-            // Nút tham gia → hiện dialog nhập mã
+            const SizedBox(height: 12),
+            _buildAvatarStack(),
+            const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: () => _showJoinDialog(context),
-                icon: Icon(Icons.vpn_key),
-                label: Text("Tham gia phòng"),
+                icon: const Icon(Icons.vpn_key),
+                label: const Text("Tham gia phòng"),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
+                  backgroundColor: const Color(
+                    0xFF10B981,
+                  ), // Dùng màu xanh lá thành công
                   foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(vertical: 12),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -201,83 +167,129 @@ class RoomCard extends StatelessWidget {
     );
   }
 
-  // Dialog nhập mã
+  Widget _buildAvatarStack() {
+    return FutureBuilder<List<AppUser>>(
+      future: _fetchMembers(room.members),
+      builder: (context, snapshot) {
+        final members = snapshot.data ?? [];
+        return Row(
+          children: [
+            SizedBox(
+              width: (members.take(6).length * 28.0) + 12,
+              height: 40,
+              child: Stack(
+                children: members.take(6).toList().asMap().entries.map((e) {
+                  int idx = e.key;
+                  AppUser member = e.value;
+                  return Positioned(
+                    left: idx * 28.0,
+                    child: CircleAvatar(
+                      radius: 20,
+                      backgroundColor: Colors.white,
+                      child: CircleAvatar(
+                        radius: 18,
+                        backgroundImage: member.avatarUrl != null
+                            ? NetworkImage(member.avatarUrl!)
+                            : null,
+                        child: member.avatarUrl == null
+                            ? Text(
+                                member.name.isNotEmpty
+                                    ? member.name[0].toUpperCase()
+                                    : "?",
+                              )
+                            : null,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            if (members.length > 6)
+              Text(
+                " +${members.length - 6}",
+                style: const TextStyle(
+                  color: Colors.grey,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            const Spacer(),
+            Text(
+              "${room.members.length} thành viên",
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _showJoinDialog(BuildContext context) {
     final TextEditingController codeController = TextEditingController();
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text("Nhập mã tham gia"),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text("Xác nhận tham gia"),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text("Phòng: ${room.name}"),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             TextField(
               controller: codeController,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: "Mã phòng",
                 border: OutlineInputBorder(),
-                counterText: "",
               ),
               textCapitalization: TextCapitalization.characters,
-              maxLength: 10,
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text("Hủy")),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Hủy"),
+          ),
           ElevatedButton(
             onPressed: () {
               final inputCode = codeController.text.trim().toUpperCase();
               if (inputCode == room.code) {
-                Navigator.pop(ctx); // đóng dialog
+                Navigator.pop(ctx);
                 _joinRoomConfirmed(context);
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text("Mã phòng sai! Vui lòng thử lại."),
-                    backgroundColor: Colors.red,
-                  ),
-                );
+                SnackBarService
+                .showError(context, "Mã phòng không chính xác!");
               }
             },
-            child: Text("Xác nhận"),
+            child: const Text("Xác nhận"),
           ),
         ],
       ),
     );
   }
 
-  // Join phòng khi mã đúng
   void _joinRoomConfirmed(BuildContext context) async {
     try {
       await RoomService().joinRoomByCode(room.code);
 
-      // Refresh user data to get the new roomId
       final authProvider = Provider.of<MyAuthProvider>(context, listen: false);
       await authProvider.refreshUser();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Đã tham gia phòng: ${room.name}"),
-          backgroundColor: Colors.green,
-        ),
-      );
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (context) => MainScreen(),
-        ),
-        (Route<dynamic> route) => false,
-      );
+      if (context.mounted) {
+        SnackBarService.showSuccess(
+          context,
+          "Chào mừng bạn đến với ${room.name}!",
+        );
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const MainScreen()),
+          (route) => false,
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
-      );
+      if (context.mounted) SnackBarService.showError(context, "Lỗi: $e");
     }
   }
 
-  // Lấy danh sách thành viên
   Future<List<AppUser>> _fetchMembers(List<DocumentReference> refs) async {
     if (refs.isEmpty) return [];
     try {
