@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:house_pal/models/app_user.dart';
 import 'package:house_pal/Screens/Client/Task/create_task_screen.dart';
 import 'package:house_pal/models/room.dart';
+import 'package:house_pal/services/snack_bar_service.dart';
 
 class TaskDetailScreen extends StatefulWidget {
   final String roomId;
@@ -34,20 +35,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   Task? _cachedTask;
   AppUser? _cachedCurrentUser;
 
-  // ✅ NEW: Cache assignee data để tránh fetch lại
   Map<String, Map<String, dynamic>> _assigneeCache = {};
 
-  @override
-  void initState() {
-    super.initState();
-    _hasPopped = false;
-    _justCompleted = false;
-    _isDeleting = false;
-    _cachedTask = null;
-    _cachedCurrentUser = null;
-  }
-
-  // ✅ Constants
+  // ✅ OPT #1: Constants tập trung ở một chỗ
   static const _freqMap = {
     'daily': 'Hàng ngày',
     'weekly': 'Hàng tuần',
@@ -60,12 +50,39 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     'hard': 'Khó',
   };
 
-  // ✅ NEW: UI Constants
   static const _loadingSize = 24.0;
   static const _popDelay = Duration(milliseconds: 250);
-  static const _snackBarDuration = Duration(seconds: 2);
 
-  // ✅ OPTIMIZATION: Helper để lấy assignee reference (tránh duplicate)
+  @override
+  void initState() {
+    super.initState();
+    _hasPopped = false;
+    _justCompleted = false;
+    _isDeleting = false;
+    _cachedTask = null;
+    _cachedCurrentUser = null;
+  }
+
+  // ✅ OPT #2: Helper function tập trung xử lý Pop + Result
+  void _popWithResult({
+    required bool isCompleted,
+    required String message,
+    required String type,
+    int? points,
+  }) {
+    if (!_hasPopped && mounted) {
+      _hasPopped = true;
+      Navigator.of(context).pop({
+        'completed': isCompleted,
+        'deleted': !isCompleted,
+        'showMessage': true,
+        'message': message,
+        'type': type,
+        if (points != null) 'points': points,
+      });
+    }
+  }
+
   DocumentReference? _getAssigneeReference(Task task) {
     if (task.assignMode == 'manual') {
       return task.manualAssignedTo;
@@ -79,7 +96,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   }
 
   Future<bool> _showDeleteConfirm() async {
-    final result = await showDialog<bool>(
+    return await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
@@ -96,8 +113,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           ),
         ],
       ),
-    );
-    return result ?? false;
+    ) ?? false;
   }
 
   void _handleEdit(Task task) async {
@@ -105,7 +121,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     final currentUser = authProvider.currentUser;
     
     if (currentUser == null || currentUser.roomId == null) {
-      _showSnackBar('Lỗi: Không tìm thấy phòng', isError: true);
+      SnackBarService.showError(context, 'Lỗi: Không tìm thấy phòng');
       return;
     }
 
@@ -113,14 +129,13 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       final roomDoc = await currentUser.roomId!.get();
       
       if (!roomDoc.exists) {
-        _showSnackBar('Lỗi: Phòng không tồn tại', isError: true);
+        SnackBarService.showError(context, 'Lỗi: Phòng không tồn tại');
         return;
       }
 
       final room = Room.fromFirestore(roomDoc);
 
       if (mounted) {
-        // ✅ FIX: Await để refresh UI sau khi edit
         final result = await Navigator.push(
           context,
           MaterialPageRoute(
@@ -132,7 +147,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           ),
         );
 
-        // ✅ FIX: Clear cache khi edit xong để reload data mới
         if (result == true && mounted) {
           setState(() {
             _assigneeCache.clear();
@@ -142,11 +156,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     } catch (e) {
       debugPrint('Error in edit: $e');
       if (mounted) {
-        _showSnackBar('Lỗi: ${e.toString()}', isError: true);
+        SnackBarService.showError(context, 'Lỗi: ${e.toString()}');
       }
     }
   }
 
+  // ✅ OPT #3: Tối ưu _handleDelete - Loại bỏ duplicated setState
   Future<void> _handleDelete() async {
     if (!await _showDeleteConfirm()) return;
 
@@ -166,16 +181,16 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           .delete();
 
       if (!mounted) return;
-      _showSnackBar('Đã xóa công việc thành công', isSuccess: true);
 
       await Future.delayed(_popDelay);
-      if (!_hasPopped && mounted) {
-        _hasPopped = true;
-        Navigator.of(context).pop({'deleted': true});
-      }
+      _popWithResult(
+        isCompleted: false,
+        message: 'Đã xóa công việc thành công',
+        type: 'success',
+      );
     } catch (e) {
       if (mounted) {
-        _showSnackBar('Lỗi khi xóa: $e', isError: true);
+        SnackBarService.showError(context, 'Lỗi khi xóa: $e');
         setState(() {
           _isDeleting = false;
           _isProcessing = false;
@@ -185,13 +200,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
+  // ✅ OPT #4: Tối ưu _handleCompleteTask - Loại bỏ duplicated setState
   Future<void> _handleCompleteTask(Task task) async {
     if (_isProcessing || _isDeleting) return;
 
     final authProvider = Provider.of<MyAuthProvider>(context, listen: false);
     final currentUser = authProvider.currentUser;
     if (currentUser == null) {
-      _showSnackBar('Vui lòng đăng nhập', isError: true);
+      SnackBarService.showError(context, 'Vui lòng đăng nhập');
       return;
     }
 
@@ -210,17 +226,17 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       );
 
       if (!mounted) return;
-      _showSnackBar('Hoàn thành thành công! +${task.point} điểm',
-          isSuccess: true);
 
-      if (!_hasPopped) {
-        _hasPopped = true;
-        await Future.delayed(_popDelay);
-        if (mounted) Navigator.of(context).pop({'completed': true, 'points': task.point});
-      }
+      await Future.delayed(_popDelay);
+      _popWithResult(
+        isCompleted: true,
+        message: 'Hoàn thành thành công! +${task.point} điểm',
+        type: 'success',
+        points: task.point,
+      );
     } catch (e) {
       if (mounted) {
-        _showSnackBar('Lỗi: $e', isError: true);
+        SnackBarService.showError(context, 'Lỗi: $e');
         setState(() {
           _isProcessing = false;
           _justCompleted = false;
@@ -231,22 +247,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
-  void _showSnackBar(String message, {bool isError = false, bool isSuccess = false}) {
-    if (!mounted) return;
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError 
-            ? Colors.red 
-            : isSuccess 
-                ? Colors.green 
-                : null,
-        duration: _snackBarDuration,
-      ),
-    );
-  }
-
   String _getFrequencyText(String frequency) =>
       _freqMap[frequency.toLowerCase()] ?? frequency;
 
@@ -255,7 +255,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
   bool _isCurrentUserAssignee(Task task, AppUser? currentUser) {
     if (currentUser == null) return false;
-    final assigneeRef = _getAssigneeReference(task); // ✅ Dùng helper
+    final assigneeRef = _getAssigneeReference(task);
     return assigneeRef?.id == currentUser.uid;
   }
 
@@ -493,9 +493,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
   }
 
-  // ✅ OPTIMIZATION: Cache assignee data
+  // ✅ OPT #5: Tối ưu _assigneeCard - Combine logic cache vào một chỗ
   Widget _assigneeCard(Task task) {
-    final assigneeRef = _getAssigneeReference(task); // ✅ Dùng helper
+    final assigneeRef = _getAssigneeReference(task);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -504,26 +504,23 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         future: assigneeRef?.get(),
         builder: (context, snapshot) {
           String userName = 'Chưa phân công';
-          String? avatarUrl;
+          String avatarUrl = 'https://i.pravatar.cc/150?img=3';
 
-          if (snapshot.hasData && snapshot.data!.exists) {
+          // Tối ưu: Kiểm tra cache trước, sau đó fetch
+          if (assigneeRef != null && _assigneeCache.containsKey(assigneeRef.id)) {
+            final cached = _assigneeCache[assigneeRef.id]!;
+            userName = cached['name'] ?? 'Không có tên';
+            avatarUrl = cached['avatarUrl'] ?? cached['avatar'] ?? avatarUrl;
+          } else if (snapshot.hasData && snapshot.data!.exists) {
             final userData = snapshot.data!.data() as Map<String, dynamic>?;
             if (userData != null) {
-              // ✅ Cache data để tránh fetch lại
               _assigneeCache[assigneeRef!.id] = userData;
-              
-              userName = userData['name'] ?? 
-                         userData['fullName'] ?? 
-                         'Không có tên';
+              userName = userData['name'] ?? userData['fullName'] ?? 'Không có tên';
               avatarUrl = userData['avatarUrl'] ?? 
                          userData['avatar'] ?? 
-                         userData['photoURL'];
+                         userData['photoURL'] ?? 
+                         avatarUrl;
             }
-          } else if (assigneeRef != null && _assigneeCache.containsKey(assigneeRef.id)) {
-            // ✅ Dùng cache nếu có
-            final cached = _assigneeCache[assigneeRef.id]!;
-            userName = cached['name'] ?? cached['fullName'] ?? 'Không có tên';
-            avatarUrl = cached['avatarUrl'] ?? cached['avatar'] ?? cached['photoURL'];
           }
 
           return Row(
@@ -531,12 +528,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               CircleAvatar(
                 radius: 24,
                 backgroundColor: Colors.grey[200],
-                backgroundImage: (avatarUrl?.isNotEmpty ?? false)
-                    ? NetworkImage(avatarUrl!)
-                    : null,
-                child: (avatarUrl?.isEmpty ?? true)
-                    ? Icon(Icons.person, color: Colors.grey[400])
-                    : null,
+                backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+                child: avatarUrl.isEmpty ? Icon(Icons.person, color: Colors.grey[400]) : null,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -600,13 +593,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            task.description.isNotEmpty
-                ? task.description
-                : 'Không có mô tả',
+            task.description.isNotEmpty ? task.description : 'Không có mô tả',
             style: TextStyle(
-              color: task.description.isNotEmpty 
-                  ? Colors.black87 
-                  : Colors.grey,
+              color: task.description.isNotEmpty ? Colors.black87 : Colors.grey,
             ),
           ),
         ],

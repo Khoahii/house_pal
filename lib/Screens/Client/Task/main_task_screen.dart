@@ -8,6 +8,7 @@ import 'package:house_pal/Screens/Client/Task/task_detail_screen.dart';
 import 'package:house_pal/models/room.dart';
 import 'package:house_pal/services/leaderboard_service.dart';
 import 'package:house_pal/models/leaderboard_score.dart';
+import 'package:house_pal/services/snack_bar_service.dart';
 
 void main() {
   runApp(const MainTaskScreen());
@@ -53,9 +54,8 @@ class _MainTaskState extends State<MainTask> {
   Future<void> _loadCurrentUser() async {
     final firebaseUser = FirebaseAuth.instance.currentUser;
 
-
     if (firebaseUser == null) {
-     if (mounted) {
+      if (mounted) {
         setState(() {
           currentUser = null;
           currentRoom = null;
@@ -68,7 +68,6 @@ class _MainTaskState extends State<MainTask> {
     }
 
     _currentUserId = firebaseUser.uid;
-    
     _userCache.clear();
 
     final userRef = FirebaseFirestore.instance.collection('users').doc(firebaseUser.uid);
@@ -90,7 +89,7 @@ class _MainTaskState extends State<MainTask> {
       newRoom = Room.fromFirestore(roomQuery.docs.first);
     }
 
-   if (mounted) {
+    if (mounted) {
       setState(() {
         currentUser = newUser;
         currentRoom = newRoom;
@@ -116,7 +115,6 @@ class _MainTaskState extends State<MainTask> {
     return null;
   }
 
-  // Hàm cache assignee data
   Future<Map<String, dynamic>> _getAssigneeData(DocumentReference? ref) async {
     if (ref == null) {
       return {
@@ -124,7 +122,7 @@ class _MainTaskState extends State<MainTask> {
         'avatar': 'https://i.pravatar.cc/150?img=3',
       };
     }
-    // Kiểm tra cache trước
+    
     if (_userCache.containsKey(ref.id)) {
       return _userCache[ref.id]!;
     }
@@ -137,17 +135,42 @@ class _MainTaskState extends State<MainTask> {
           'name': userData['name'] ?? 'Thành viên',
           'avatar': userData['avatarUrl'] ?? userData['avatar'] ?? 'https://i.pravatar.cc/150?img=3',
         };
-        // Lưu vào cache
         _userCache[ref.id] = assigneeData;
         return assigneeData;
       }
     } catch (e) {
-      // Error handling - silently fall back to default
+      debugPrint('Error fetching assignee: $e');
     }
     return {
       'name': 'Chưa phân công',
       'avatar': 'https://i.pravatar.cc/150?img=3',
     };
+  }
+
+  // ✅ FIX #1: Helper function để tránh code lặp
+  Future<void> _navigateToTaskDetail(String taskId) async {
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TaskDetailScreen(
+          roomId: currentRoom!.id,
+          assignmentId: taskId,
+        ),
+      ),
+    );
+
+    _handleTaskResult(result);
+  }
+
+  // ✅ FIX #2: Centralized notification handler
+  void _handleTaskResult(Map<String, dynamic>? result) {
+    if (result != null && result['showMessage'] == true && mounted) {
+      if (result['type'] == 'success') {
+        SnackBarService.showSuccess(context, result['message']);
+      } else {
+        SnackBarService.showError(context, result['message']);
+      }
+    }
   }
 
   Widget _buildPopupMenuItem({
@@ -202,24 +225,28 @@ class _MainTaskState extends State<MainTask> {
       floatingActionButton: isLoadingUser
           ? null
           : (currentUser != null && currentUser!.canCreateTask && currentRoom != null)
-              ? FloatingActionButton(
-                  heroTag: 'createTask',
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => CreateTaskScreen(
-                          currentUser: currentUser!,
-                          currentRoom: currentRoom!,
+              ? Padding(
+                  padding: const EdgeInsets.only(bottom: 20),
+                  child: FloatingActionButton(
+                    heroTag: 'createTask',
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => CreateTaskScreen(
+                            currentUser: currentUser!,
+                            currentRoom: currentRoom!,
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                  backgroundColor: const Color(0xFF4F46E5),
-                  elevation: 4,
-                  child: const Icon(Icons.add, color: Colors.white, size: 28),
+                      );
+                    },
+                    backgroundColor: const Color(0xFF4F46E5),
+                    elevation: 4,
+                    child: const Icon(Icons.add, color: Colors.white, size: 28),
+                  ),
                 )
               : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -257,123 +284,123 @@ class _MainTaskState extends State<MainTask> {
                   ],
                 ),
                 child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        '🏆 Bảng Xếp Hạng',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          '🏆 Bảng Xếp Hạng',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      InkWell(
-                        onTap: () {
-                          if (currentRoom != null) {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => RankingScreen(
-                                  roomId: currentRoom!.id,
+                        InkWell(
+                          onTap: () {
+                            if (currentRoom != null) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => RankingScreen(
+                                    roomId: currentRoom!.id,
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                          child: const Text(
+                            'Xem tất cả',
+                            style: TextStyle(
+                              color: Color(0xFFE0E7FF),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    if (currentRoom != null)
+                      StreamBuilder<List<LeaderboardScore>>(
+                        stream: LeaderboardService().getTop3(currentRoom!.id),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const SizedBox(
+                              height: 80,
+                              child: Center(
+                                child: SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  ),
                                 ),
                               ),
                             );
                           }
+
+                          if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 20),
+                              child: Center(
+                                child: Text(
+                                  'Chưa có dữ liệu xếp hạng',
+                                  style: TextStyle(
+                                    color: Color(0xFFE0E7FF),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
+
+                          final top3 = snapshot.data!;
+                          return Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              if (top3.isNotEmpty)
+                                LeaderboardItem(
+                                  name: top3[0].userName ?? 'User',
+                                  image: top3[0].userAvatar ?? 'https://i.pravatar.cc/150?img=1',
+                                  isWinner: true,
+                                )
+                              else
+                                const SizedBox(width: 60),
+                              if (top3.length >= 2)
+                                LeaderboardItem(
+                                  name: top3[1].userName ?? 'User',
+                                  image: top3[1].userAvatar ?? 'https://i.pravatar.cc/150?img=2',
+                                )
+                              else
+                                const SizedBox(width: 60),
+                              if (top3.length >= 3)
+                                LeaderboardItem(
+                                  name: top3[2].userName ?? 'User',
+                                  image: top3[2].userAvatar ?? 'https://i.pravatar.cc/150?img=3',
+                                )
+                              else
+                                const SizedBox(width: 60),
+                            ],
+                          );
                         },
-                        child: const Text(
-                          'Xem tất cả',
-                          style: TextStyle(
-                            color: Color(0xFFE0E7FF),
-                            fontSize: 12,
+                      )
+                    else
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        child: Center(
+                          child: Text(
+                            'Vui lòng tham gia phòng',
+                            style: TextStyle(
+                              color: Color(0xFFE0E7FF),
+                              fontSize: 12,
+                            ),
                           ),
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  if (currentRoom != null)
-                    StreamBuilder<List<LeaderboardScore>>(
-                      stream: LeaderboardService().getTop3(currentRoom!.id),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) {
-                          return const SizedBox(
-                            height: 80,
-                            child: Center(
-                              child: SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                ),
-                              ),
-                            ),
-                          );
-                        }
-
-                        if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
-                          return const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 20),
-                            child: Center(
-                              child: Text(
-                                'Chưa có dữ liệu xếp hạng',
-                                style: TextStyle(
-                                  color: Color(0xFFE0E7FF),
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                          );
-                        }
-
-                        final top3 = snapshot.data!;
-                        return Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            if (top3.isNotEmpty)
-                              LeaderboardItem(
-                                name: top3[0].userName ?? 'User',
-                                image: top3[0].userAvatar ?? 'https://i.pravatar.cc/150?img=1',
-                                isWinner: true,
-                              )
-                            else
-                              const SizedBox(width: 60),
-                            if (top3.length >= 2)
-                              LeaderboardItem(
-                                name: top3[1].userName ?? 'User',
-                                image: top3[1].userAvatar ?? 'https://i.pravatar.cc/150?img=2',
-                              )
-                            else
-                              const SizedBox(width: 60),
-                            if (top3.length >= 3)
-                              LeaderboardItem(
-                                name: top3[2].userName ?? 'User',
-                                image: top3[2].userAvatar ?? 'https://i.pravatar.cc/150?img=3',
-                              )
-                            else
-                              const SizedBox(width: 60),
-                          ],
-                        );
-                      },
-                    )
-                  else
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 20),
-                      child: Center(
-                        child: Text(
-                          'Vui lòng tham gia phòng',
-                          style: TextStyle(
-                            color: Color(0xFFE0E7FF),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
+                  ],
+                ),
               ),
-            ),
             ),
             const SizedBox(height: 32),
             Row(
@@ -477,7 +504,6 @@ class _MainTaskState extends State<MainTask> {
 
                   var tasks = snapshot.data!.docs;
 
-      
                   if (_filterType == 'my_tasks' && currentUser != null) {
                     final currentUserRef = FirebaseFirestore.instance
                         .collection('users')
@@ -570,17 +596,8 @@ class _MainTaskState extends State<MainTask> {
                           }
 
                           return GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => TaskDetailScreen(
-                                    roomId: currentRoom!.id,
-                                    assignmentId: taskDoc.id,
-                                  ),
-                                ),
-                              );
-                            },
+                            // ✅ FIX #3: Sử dụng helper function thay vì lặp code
+                            onTap: () => _navigateToTaskDetail(taskDoc.id),
                             child: TaskCardItem(
                               difficulty: diffLabel,
                               difficultyColor: diffColor,
@@ -590,17 +607,8 @@ class _MainTaskState extends State<MainTask> {
                               description: data['description'] ?? '',
                               assignee: assigneeName,
                               assigneeAvatar: assigneeAvatar,
-                              onDetailTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => TaskDetailScreen(
-                                      roomId: currentRoom!.id,
-                                      assignmentId: taskDoc.id,
-                                    ),
-                                  ),
-                                );
-                              },
+                              // ✅ FIX #4: Sử dụng helper function trong callback
+                              onDetailTap: () => _navigateToTaskDetail(taskDoc.id),
                               modeLabel: modeLabel,
                               modeIcon: modeIcon,
                               modeColor: modeColor,
@@ -714,7 +722,7 @@ class TaskCardItem extends StatelessWidget {
   final String description;
   final String assignee;
   final String assigneeAvatar;
-  final VoidCallback onDetailTap;
+  final VoidCallback onDetailTap; // ✅ Giữ nguyên VoidCallback (hỗ trợ sync)
   final String modeLabel;
   final IconData modeIcon;
   final Color modeColor;
