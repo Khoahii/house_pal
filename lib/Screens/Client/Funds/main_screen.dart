@@ -363,7 +363,7 @@ class _MainFundScreenState extends State<MainFundScreen> {
                                 statusColor = Colors.green;
                                 statusIcon = Icons.arrow_upward;
                                 statusText =
-                                    "Cần thu: ${currencyFormat.format(balance)}";
+                                    "Thu: ${currencyFormat.format(balance)}";
                               } else if (balance < 0) {
                                 statusColor = Colors.red;
                                 statusIcon = Icons.arrow_downward;
