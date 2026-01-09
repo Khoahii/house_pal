@@ -20,12 +20,15 @@ class _RoleManagementScreenState extends State<RoleManagementScreen> {
     "member": "Member",
   };
 
-  /// Stream lấy danh sách user theo role của người đang đăng nhập
+  static const Map<String, Color> roleColor = {
+    "admin": Colors.red,
+    "room_leader": Colors.deepPurple,
+    "member": Colors.grey,
+  };
+
   Stream<QuerySnapshot<Map<String, dynamic>>> _membersStream(AppUser me) {
-    // roomId của bạn đang là DocumentReference? (đúng theo AppUser)
     final DocumentReference? myRoomRef = me.roomId;
 
-    // ADMIN: thấy tất cả user của mọi phòng, nhưng KHÔNG hiển thị role=admin
     if (me.role == 'admin') {
       return _firestore
           .collection('users')
@@ -33,14 +36,9 @@ class _RoleManagementScreenState extends State<RoleManagementScreen> {
           .snapshots();
     }
 
-    // ROOM_LEADER: thấy tất cả user trong phòng của mình (member + room_leader), KHÔNG hiển thị admin
     if (me.role == 'room_leader') {
-      if (myRoomRef == null) {
-        // Không có phòng => stream rỗng
-        return const Stream.empty();
-      }
+      if (myRoomRef == null) return const Stream.empty();
 
-      // Quan trọng: roomId là DocumentReference => query phải so sánh đúng DocumentReference
       return _firestore
           .collection('users')
           .where('roomId', isEqualTo: myRoomRef)
@@ -48,7 +46,6 @@ class _RoleManagementScreenState extends State<RoleManagementScreen> {
           .snapshots();
     }
 
-    // Member thường không được vào màn này, trả stream rỗng
     return const Stream.empty();
   }
 
@@ -67,10 +64,14 @@ class _RoleManagementScreenState extends State<RoleManagementScreen> {
     final me = context.watch<MyAuthProvider>().currentUser;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F7FB),
+      backgroundColor: const Color(0xFFF4F6FA),
       appBar: AppBar(
-        title: const Text('Phân quyền thành viên'),
+        title: const Text(
+          'Phân quyền thành viên',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         centerTitle: true,
+        elevation: 0,
       ),
       body: me == null
           ? const Center(child: CircularProgressIndicator())
@@ -87,20 +88,15 @@ class _RoleManagementScreenState extends State<RoleManagementScreen> {
                 }
 
                 final docs = snapshot.data?.docs ?? [];
-
                 if (docs.isEmpty) {
-                  // Trường hợp room_leader không có roomId hoặc phòng chưa có ai
                   return const Center(
                     child: Text('Không có thành viên để hiển thị.'),
                   );
                 }
 
-                // Convert sang AppUser để dùng field rõ ràng
-                final users = docs
-                    .map((d) => AppUser.fromFirestore(d))
-                    .toList();
+                final users =
+                    docs.map((d) => AppUser.fromFirestore(d)).toList();
 
-                // Sort: room_leader lên trước, member sau
                 users.sort((a, b) {
                   int rank(String r) => r == 'room_leader' ? 0 : 1;
                   final ra = rank(a.role);
@@ -112,133 +108,162 @@ class _RoleManagementScreenState extends State<RoleManagementScreen> {
                 return ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            me.role == 'admin'
-                                ? "Danh sách (mọi phòng) — không hiển thị Admin"
-                                : "Danh sách thành viên trong phòng của bạn",
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-
-                          ...users.map((u) {
-                            final currentRole = u.role;
-                            final isMe = u.uid == me.uid;
-
-                            // admin được set đủ 3 role, room_leader chỉ được set member/room_leader
-                            final allowedRoles = me.role == 'admin'
-                                ? ['member', 'room_leader', 'admin']
-                                : ['member', 'room_leader'];
-
-                            // Nếu room_leader đang xem, dropdown không có admin
-                            // Và user list đã không có admin rồi.
-
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 10,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF6F7FB),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.grey.shade300),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.person_outline,
-                                      color: Colors.deepPurple),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          u.name.isNotEmpty ? u.name : u.email,
-                                          style: const TextStyle(
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          isMe ? "Bạn" : (u.email),
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey.shade600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  DropdownButton<String>(
-                                    value: currentRole,
-                                    underline: const SizedBox(),
-                                    items: allowedRoles
-                                        .map(
-                                          (r) => DropdownMenuItem(
-                                            value: r,
-                                            child: Text(roleLabel[r] ?? r),
-                                          ),
-                                        )
-                                        .toList(),
-                                    onChanged: (value) async {
-                                      if (value == null) return;
-
-                                      // Optional: chặn room_leader tự set ai đó thành admin
-                                      if (me.role != 'admin' &&
-                                          value == 'admin') {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                                'Room Leader không thể cấp quyền Admin.'),
-                                          ),
-                                        );
-                                        return;
-                                      }
-
-                                      await _updateRole(
-                                        uid: u.uid,
-                                        newRole: value,
-                                      );
-
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              'Đã cập nhật ${u.name} -> ${roleLabel[value] ?? value}',
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                    },
-                                  ),
-                                ],
-                              ),
-                            );
-                          }),
-                        ],
-                      ),
-                    ),
+                    _buildHeader(me),
+                    const SizedBox(height: 16),
+                    ...users.map((u) => _memberTile(context, me, u)),
                   ],
                 );
               },
             ),
+    );
+  }
+
+  // ================= UI COMPONENTS =================
+
+  Widget _buildHeader(AppUser me) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 12,
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.shield, color: Colors.deepPurple),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              me.role == 'admin'
+                  ? 'Danh sách người dùng (không hiển thị Admin)'
+                  : 'Danh sách thành viên trong phòng của bạn',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _memberTile(BuildContext context, AppUser me, AppUser u) {
+    final isMe = u.uid == me.uid;
+    final currentRole = u.role;
+
+    final allowedRoles = me.role == 'admin'
+        ? ['member', 'room_leader', 'admin']
+        : ['member', 'room_leader'];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 22,
+            backgroundColor:
+                roleColor[currentRole]?.withOpacity(0.15) ?? Colors.grey[200],
+            child: Icon(
+              Icons.person,
+              color: roleColor[currentRole] ?? Colors.grey,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  u.name.isNotEmpty ? u.name : u.email,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  isMe ? 'Bạn' : u.email,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: roleColor[currentRole] ?? Colors.grey,
+              ),
+            ),
+            child: DropdownButton<String>(
+              value: currentRole,
+              underline: const SizedBox(),
+              icon: const Icon(Icons.keyboard_arrow_down),
+              items: allowedRoles
+                  .map(
+                    (r) => DropdownMenuItem(
+                      value: r,
+                      child: Text(
+                        roleLabel[r] ?? r,
+                        style: TextStyle(
+                          color: roleColor[r] ?? Colors.black,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) async {
+                if (value == null) return;
+
+                if (me.role != 'admin' && value == 'admin') {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                          'Room Leader không thể cấp quyền Admin.'),
+                    ),
+                  );
+                  return;
+                }
+
+                await _updateRole(uid: u.uid, newRole: value);
+
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Đã cập nhật ${u.name} → ${roleLabel[value]}',
+                      ),
+                    ),
+                  );
+                }
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
