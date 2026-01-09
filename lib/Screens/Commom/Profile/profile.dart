@@ -5,7 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:house_pal/providers/auth_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:house_pal/Screens/Commom/Profile/role_management_screen.dart';
-
+import 'package:house_pal/Screens/Commom/Profile/house_members_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -13,8 +13,19 @@ class ProfileScreen extends StatefulWidget {
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
-
 class _ProfileScreenState extends State<ProfileScreen> {
+  void _openMembers(BuildContext context, AppUser? user) {
+    if (user?.roomId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bạn chưa tham gia phòng.')),
+      );
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => HouseMembersScreen(roomRef: user!.roomId!)),
+    );
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -133,24 +144,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
 
                   const SizedBox(height: 12),
-
-                  _menuCard(icon: Icons.group, title: "Thành viên trong nhà"),
+                  _menuCard(
+                    icon: Icons.group,
+                    title: "Thành viên trong nhà",
+                    onTap: () => _openMembers(context, user),
+                  ),
                   _menuCard(icon: Icons.calendar_month, title: "Lịch việc nhà"),
                   _menuCard(icon: Icons.attach_money, title: "Quỹ chung"),
 
-                                if ((user?.role == 'admin' || user?.role == 'room_leader') && user?.roomId != null)
-                  _menuCard(
-                    icon: Icons.admin_panel_settings,
-                    title: "Phân quyền thành viên",
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const RoleManagementScreen()),
-                      );
-                    },
-                  ),
-
-
+                  if ((user?.role == 'admin' || user?.role == 'room_leader') &&
+                      user?.roomId != null)
+                    _menuCard(
+                      icon: Icons.admin_panel_settings,
+                      title: "Phân quyền thành viên",
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const RoleManagementScreen(),
+                          ),
+                        );
+                      },
+                    ),
 
                   const SizedBox(height: 16),
 
@@ -200,37 +215,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // MENU ITEM
   Widget _menuCard({
-  required IconData icon,
-  required String title,
-  VoidCallback? onTap,
-}) {
-  return InkWell(
-    onTap: onTap,
-    borderRadius: BorderRadius.circular(14),
-    child: Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: Colors.deepPurple),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+    required IconData icon,
+    required String title,
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.deepPurple),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
-          ),
-          const Icon(Icons.chevron_right, color: Colors.grey),
-        ],
+            const Icon(Icons.chevron_right, color: Colors.grey),
+          ],
+        ),
       ),
-    ),
-  );
-}
-
+    );
+  }
 
   // DANGER ITEM
   Widget _dangerCard({required IconData icon, required String title}) {
@@ -255,5 +272,4 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
-
 }
